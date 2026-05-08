@@ -1,4 +1,4 @@
-import app, { connectDB } from '../server.js';
+import app, { connectDB } from '../src/server.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://last-to-do-u9vd.vercel.app');
