@@ -1,0 +1,30 @@
+import mongoose from "mongoose";
+
+const itemSchema = new mongoose.Schema({
+  cantidad:    { type: Number, required: true },
+  descripcion: { type: String, required: true, trim: true },
+  precioUnitario: { type: Number, required: true },
+  total:       { type: Number, required: true },
+}, { _id: false });
+
+const cotizacionSchema = new mongoose.Schema(
+  {
+    folio:        { type: String, required: true, trim: true, unique: true },
+    tipo:         { type: String, enum: ["servicio", "renta", "venta"], required: true },
+    cliente:      { type: mongoose.Schema.Types.ObjectId, ref: "Cliente", required: true },
+    montacargas:  { type: mongoose.Schema.Types.ObjectId, ref: "Montacargas" },
+    fecha:        { type: Date, default: Date.now },
+    lugar:        { type: String, trim: true, default: "Zapopán, Jal" },
+    descripcionServicio: { type: String, trim: true },
+    items:        [itemSchema],
+    subtotal:     { type: Number, default: 0 },
+    iva:          { type: Number, default: 0 },
+    total:        { type: Number, default: 0 },
+    condiciones:  { type: String, trim: true },
+    estatus:      { type: String, enum: ["borrador", "enviada", "aceptada", "rechazada"], default: "borrador" },
+    notas:        { type: String, trim: true },
+  },
+  { timestamps: true }
+);
+
+export default mongoose.model("Cotizacion", cotizacionSchema);

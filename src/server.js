@@ -5,6 +5,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import dns from 'node:dns';
 
+import cotizacionRoutes from "./routes/cotizacion.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import authRoutes from './routes/auth.routes.js';
 import taskRoutes from './routes/task.routes.js';
@@ -46,6 +47,7 @@ app.use('/api/montacargas', montacargasRoutes);
 app.use('/api/rentas',      rentaRoutes);
 app.use('/api/servicios',   servicioRoutes);
 app.use('/api/facturas',    facturaRoutes);
+app.use('/api/cotizaciones', cotizacionRoutes);
 
 // Conexión a MongoDB (sin app.listen — Vercel lo maneja)
 const MONGO_URI = process.env.MONGO_URI;
