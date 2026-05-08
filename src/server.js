@@ -18,7 +18,7 @@ dns.setServers(['1.1.1.1', '8.8.8.8']);
 dns.setDefaultResultOrder('ipv4first');
 
 const app = express();
-app.options('*', (req, res) => {
+app.options('/(.*)', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', 'https://last-to-do-u9vd.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
