@@ -1,4 +1,4 @@
-import Servicio from "../models/servicio.js";
+import Servicio from "../models/Servicio.js";
 import Montacargas from "../models/montacargas.js";
 
 export async function getServicios(req, res) {

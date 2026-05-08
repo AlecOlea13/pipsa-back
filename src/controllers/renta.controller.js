@@ -1,4 +1,4 @@
-import Renta from "../models/renta.js";
+import Renta from "../models/Renta.js";
 import Montacargas from "../models/montacargas.js";
 
 export async function getRentas(req, res) {

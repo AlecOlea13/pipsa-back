@@ -1,4 +1,4 @@
-import Factura from "../models/factura.js";
+import Factura from "../models/Factura.js";
 
 export async function getFacturas(req, res) {
   try {
