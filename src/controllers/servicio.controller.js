@@ -1,5 +1,5 @@
 import Servicio from "../models/Servicio.js";
-import Montacargas from "../models/montacargas.js";
+import Montacargas from "../models/Montacargas.js";
 
 export async function getServicios(req, res) {
   try {
