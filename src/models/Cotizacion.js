@@ -23,6 +23,7 @@ const cotizacionSchema = new mongoose.Schema(
     condiciones:  { type: String, trim: true },
     estatus:      { type: String, enum: ["borrador", "enviada", "aceptada", "rechazada"], default: "borrador" },
     notas:        { type: String, trim: true },
+    asesor: { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", default: null },
   },
   { timestamps: true }
 );
