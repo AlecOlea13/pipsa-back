@@ -3,7 +3,7 @@ import Cotizacion from "../models/Cotizacion.js";
 export async function getCotizaciones(req, res) {
   try {
     const cotizaciones = await Cotizacion.find()
-      .populate("cliente", "nombre")
+      .populate("cliente", "nombre direccion telefono contacto")
       .populate("montacargas", "numeroEconomico marca modelo")
       .populate("asesor", "nombre puesto telefono email")
       .sort({ createdAt: -1 });
