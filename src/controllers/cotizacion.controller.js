@@ -12,23 +12,27 @@ export async function getCotizaciones(req, res) {
   }
 }
 
-export async function getCotizacion(req, res) {
+export async function getCotizaciones(req, res) {
   try {
-    const cotizacion = await Cotizacion.findById(req.params.id)
-      .populate("cliente")
-      .populate("montacargas");
-    if (!cotizacion) return res.status(404).json({ message: "Cotización no encontrada" });
-    res.json(cotizacion);
+    const cotizaciones = await Cotizacion.find()
+      .populate("cliente", "nombre")
+      .populate("montacargas", "numeroEconomico marca modelo")
+      .populate("asesor", "nombre puesto telefono email")
+      .sort({ createdAt: -1 });
+    res.json(cotizaciones);
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
 
-export async function createCotizacion(req, res) {
+export async function getCotizacion(req, res) {
   try {
-    const cotizacion = new Cotizacion(req.body);
-    await cotizacion.save();
-    res.status(201).json(cotizacion);
+    const cotizacion = await Cotizacion.findById(req.params.id)
+      .populate("cliente")
+      .populate("montacargas")
+      .populate("asesor", "nombre puesto telefono email");
+    if (!cotizacion) return res.status(404).json({ message: "Cotización no encontrada" });
+    res.json(cotizacion);
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
   }
