@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
 
 const itemSchema = new mongoose.Schema({
-  cantidad:    { type: Number, required: true },
-  descripcion: { type: String, required: true, trim: true },
+  cantidad:       { type: Number, required: true },
+  descripcion:    { type: String, required: true, trim: true },
   precioUnitario: { type: Number, required: true },
-  total:       { type: Number, required: true },
+  total:          { type: Number, required: true },
+  imagen:         { type: String, default: null },
 }, { _id: false });
 
 const cotizacionSchema = new mongoose.Schema(
