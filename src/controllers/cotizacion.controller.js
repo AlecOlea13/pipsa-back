@@ -4,7 +4,7 @@ export async function getCotizaciones(req, res) {
   try {
     const cotizaciones = await Cotizacion.find()
       .populate("cliente", "nombre direccion telefono contacto")
-      .populate("montacargas", "numeroEconomico marca modelo")
+      .populate("montacargas", "numeroEconomico marca modelo capacidad alturaColapsada alturaLevante voltajeBateria tipo motor serie")
       .populate("asesor", "nombre puesto telefono email")
       .sort({ createdAt: -1 });
     res.json(cotizaciones);
