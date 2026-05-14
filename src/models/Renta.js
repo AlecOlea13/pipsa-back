@@ -6,6 +6,7 @@ const rentaSchema = new mongoose.Schema(
     montacargas:  { type: mongoose.Schema.Types.ObjectId, ref: "Montacargas", required: true },
     fechaInicio:  { type: Date, required: true },
     fechaFin:     { type: Date, default: null },
+    tipoPeriodo:  { type: String, enum: ["semanal", "mensual", "anual"], default: "mensual" },
     precioMensual:{ type: Number, required: true },
     flete:        { type: Number, default: 0 },
     deposito:     { type: Number, default: 0 },

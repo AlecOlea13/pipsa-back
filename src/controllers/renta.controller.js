@@ -29,7 +29,6 @@ export async function createRenta(req, res) {
   try {
     const renta = new Renta(req.body);
     await renta.save();
-    // Actualizar montacargas
     await Montacargas.findByIdAndUpdate(req.body.montacargas, {
       clienteActual: req.body.cliente,
       estatus: "rentado",
@@ -52,14 +51,13 @@ export async function updateRenta(req, res) {
 
 export async function cerrarRenta(req, res) {
   try {
-    const { estatusMonta } = req.body; // "disponible" o "taller"
+    const { estatusMonta } = req.body;
     const renta = await Renta.findByIdAndUpdate(
       req.params.id,
       { estatus: "terminada", fechaFin: new Date() },
       { new: true }
     );
     if (!renta) return res.status(404).json({ message: "Renta no encontrada" });
-    // Liberar montacargas
     await Montacargas.findByIdAndUpdate(renta.montacargas, {
       clienteActual: null,
       estatus: estatusMonta || "disponible",
