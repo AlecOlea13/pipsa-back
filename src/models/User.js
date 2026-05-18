@@ -2,17 +2,13 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    name:         { type: String, required: true, trim: true },
-    email:        { type: String, required: true, trim: true, unique: true, lowercase: true },
-    password:     { type: String, required: true },
-    profileImage: { type: String, default: null },
-
-    // ── Verificación de correo ──
-    isVerified:        { type: Boolean, default: false },
-    verifyToken:       { type: String, default: null },
-    verifyTokenExpiry: { type: Date,   default: null },
+    username: { type: String, required: true, trim: true, unique: true, lowercase: true },
+    password: { type: String, required: true },
+    nombre:   { type: String, required: true, trim: true },
+    rol:      { type: String, enum: ["developer", "gerencia", "oficina", "tecnico"], required: true },
+    activo:   { type: Boolean, default: true },
   },
   { timestamps: true }
 );
 
-export default mongoose.model('User', userSchema);
+export default mongoose.model("User", userSchema);
