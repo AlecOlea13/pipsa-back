@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model("User", userSchema);
 
 async function main() {
-  await mongoose.connect(MONGO_URI, { dbName: "BackPWA" });
+  await mongoose.connect(MONGO_URI, { dbName: "test" });
   console.log("Conectado a MongoDB");
 
   await mongoose.connection.collection("users").deleteMany({});

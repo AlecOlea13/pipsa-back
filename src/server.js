@@ -63,7 +63,7 @@ let isConnected = false;
 export async function connectDB() {
   if (isConnected) return;
 await mongoose.connect(MONGO_URI, {
-  dbName: "BackPWA",
+  dbName: "test",
   serverSelectionTimeoutMS: 10000,
   family: 4,
 });
