@@ -62,10 +62,11 @@ let isConnected = false;
 
 export async function connectDB() {
   if (isConnected) return;
-  await mongoose.connect(MONGO_URI, {
-    serverSelectionTimeoutMS: 10000,
-    family: 4,
-  });
+await mongoose.connect(MONGO_URI, {
+  dbName: "BackPWA",
+  serverSelectionTimeoutMS: 10000,
+  family: 4,
+});
   isConnected = true;
   console.log('✅ Conectado a MongoDB');
 }
