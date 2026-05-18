@@ -34,8 +34,9 @@ export async function createUser(req, res) {
     const obj = user.toObject();
     delete obj.password;
     res.status(201).json(obj);
-  } catch (e) {
-    res.status(500).json({ message: "Error en el servidor" });
+  }  catch (e) {
+    console.error("ERROR createUser:", e.message, e.stack);
+    res.status(500).json({ message: "Error en el servidor", detail: e.message });
   }
 }
 
