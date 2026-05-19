@@ -15,6 +15,9 @@ import rentaRoutes       from "./routes/renta.routes.js";
 import servicioRoutes    from "./routes/servicio.routes.js";
 import facturaRoutes     from "./routes/factura.routes.js";
 import asesorRoutes from "./routes/asesor.routes.js";
+import refaccionRoutes     from "./routes/refaccion.routes.js";
+import tipoServicioRoutes  from "./routes/tipoServicio.routes.js";
+import ordenRefaccionRoutes from "./routes/ordenRefaccion.routes.js";
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 dns.setDefaultResultOrder('ipv4first');
@@ -50,6 +53,10 @@ app.use('/api/servicios',   servicioRoutes);
 app.use('/api/facturas',    facturaRoutes);
 app.use('/api/cotizaciones', cotizacionRoutes);
 app.use('/api/asesores', asesorRoutes);
+app.use("/api/refacciones",      refaccionRoutes);
+app.use("/api/tipos-servicio",   tipoServicioRoutes);
+app.use("/api/ordenes-refaccion", ordenRefaccionRoutes);
+
 
 // Conexión a MongoDB (sin app.listen — Vercel lo maneja)
 const MONGO_URI = process.env.MONGO_URI;
