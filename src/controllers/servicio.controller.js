@@ -62,8 +62,13 @@ export async function getServicio(req, res) {
 
 export async function createServicio(req, res) {
   try {
+    const body = { ...req.body };
+    if (!body.tipoServicio) delete body.tipoServicio;
+    if (!body.tecnicoAsignado) delete body.tecnicoAsignado;
+    if (!body.cliente) delete body.cliente;
+
     const folio = await generarFolioServicio();
-    const servicio = new Servicio({ ...req.body, folio });
+    const servicio = new Servicio({ ...body, folio });
     await servicio.save();
 
     await Montacargas.findByIdAndUpdate(req.body.montacargas, { estatus: "mantenimiento" });
