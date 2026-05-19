@@ -32,33 +32,35 @@ export async function getOrden(req, res) {
 
 export async function surtirOrden(req, res) {
   try {
-    const { items, notas } = req.body;
+    const { items, notas, fotosEvidencia } = req.body;
     const orden = await OrdenRefaccion.findById(req.params.id);
     if (!orden) return res.status(404).json({ message: "Orden no encontrada" });
 
-    // Actualizar items y descontar stock
     for (const item of items) {
       const ordenItem = orden.items.find(i => i.refaccion.toString() === item.refaccionId);
       if (ordenItem) {
         ordenItem.cantidadSurtida = item.cantidadSurtida;
         ordenItem.confirmado = item.cantidadSurtida >= ordenItem.cantidadSolicitada;
-        // Descontar stock
         await Refaccion.findByIdAndUpdate(item.refaccionId, {
           $inc: { stock: -item.cantidadSurtida }
         });
       }
     }
 
-    // Actualizar estatus de la orden
     const todosConfirmados = orden.items.every(i => i.confirmado);
     const algunoConfirmado = orden.items.some(i => i.cantidadSurtida > 0);
-    orden.estatus = todosConfirmados ? "surtida" : algunoConfirmado ? "parcial" : "pendiente";
-    orden.notas = notas ?? orden.notas;
-    orden.surtidoPor = req.userId;
+    orden.estatus      = todosConfirmados ? "surtida" : algunoConfirmado ? "parcial" : "pendiente";
+    orden.notas        = notas ?? orden.notas;
+    orden.surtidoPor   = req.userId;
     orden.fechaSurtido = new Date();
+
+    // ── Fotos de evidencia ──
+    if (fotosEvidencia && fotosEvidencia.length > 0) {
+      orden.fotosEvidencia = fotosEvidencia;
+    }
+
     await orden.save();
 
-    // Actualizar costo de refacciones en el servicio
     const costoTotal = await calcularCostoOrden(orden);
     await Servicio.findByIdAndUpdate(orden.servicio, { costoRefacciones: costoTotal });
 

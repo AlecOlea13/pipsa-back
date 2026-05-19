@@ -16,8 +16,11 @@ const servicioSchema = new mongoose.Schema(
     horometroCierre:  { type: Number, default: null },
     proximoServicio:  { type: Date, default: null },
     ordenRefaccion:   { type: mongoose.Schema.Types.ObjectId, ref: "OrdenRefaccion", default: null },
-    fotos:            [{ type: String }],
     notasCierre:      { type: String, trim: true, default: null },
+    // ── Fotos al cerrar ──
+    fotoHojaFirmada:  { type: String, default: null }, // URL Cloudinary
+    fotoEquipoFinal:  { type: String, default: null }, // URL Cloudinary
+    fotos:            [{ type: String }],
   },
   { timestamps: true }
 );
