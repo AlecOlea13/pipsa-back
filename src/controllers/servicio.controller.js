@@ -21,11 +21,17 @@ async function generarFolioOrden() {
 export async function getServicios(req, res) {
   try {
     const servicios = await Servicio.find()
-      .populate("montacargas", "numeroEconomico marca modelo")
+      .populate("montacargas", "numeroEconomico marca modelo serie")
       .populate("cliente", "nombre")
       .populate("tipoServicio", "nombre")
       .populate("tecnicoAsignado", "nombre")
-      .populate("ordenRefaccion")
+      .populate({
+        path: "ordenRefaccion",
+        populate: {
+          path: "items.refaccion",
+          select: "nombre numeroParte unidad precio",
+        },
+      })
       .sort({ createdAt: -1 });
     res.json(servicios);
   } catch (e) {
@@ -36,11 +42,17 @@ export async function getServicios(req, res) {
 export async function getServicio(req, res) {
   try {
     const servicio = await Servicio.findById(req.params.id)
-      .populate("montacargas", "numeroEconomico marca modelo")
+      .populate("montacargas", "numeroEconomico marca modelo serie")
       .populate("cliente", "nombre")
       .populate("tipoServicio", "nombre")
       .populate("tecnicoAsignado", "nombre")
-      .populate({ path: "ordenRefaccion", populate: { path: "items.refaccion", select: "nombre numeroParte unidad" } });
+      .populate({
+        path: "ordenRefaccion",
+        populate: {
+          path: "items.refaccion",
+          select: "nombre numeroParte unidad precio",
+        },
+      });
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
     res.json(servicio);
   } catch (e) {
@@ -54,17 +66,13 @@ export async function createServicio(req, res) {
     const servicio = new Servicio({ ...req.body, folio });
     await servicio.save();
 
-    // Cambiar estatus del montacargas
     await Montacargas.findByIdAndUpdate(req.body.montacargas, { estatus: "mantenimiento" });
 
-    // Generar orden de refacciones si hay tipo de servicio
     let ordenId = null;
     if (req.body.tipoServicio) {
-      // Buscar catálogo personalizado del equipo
       const catalogo = await CatalogoEquipo.findOne({ montacargas: req.body.montacargas })
         .populate("refacciones.refaccion");
 
-      // Si tiene catálogo propio, usar ese; si no, usar el del tipo de servicio
       let refacciones = [];
       if (catalogo && catalogo.refacciones.length > 0) {
         refacciones = catalogo.refacciones;
@@ -116,11 +124,18 @@ export async function cerrarServicio(req, res) {
       req.params.id,
       { estatus: "cerrado", horometroCierre: horometro, proximoServicio, notasCierre },
       { new: true }
-    ).populate("montacargas", "numeroEconomico marca modelo")
-     .populate("cliente", "nombre")
-     .populate("tipoServicio", "nombre")
-     .populate("tecnicoAsignado", "nombre")
-     .populate({ path: "ordenRefaccion", populate: { path: "items.refaccion", select: "nombre numeroParte unidad precio" } });
+    )
+      .populate("montacargas", "numeroEconomico marca modelo serie")
+      .populate("cliente", "nombre")
+      .populate("tipoServicio", "nombre")
+      .populate("tecnicoAsignado", "nombre")
+      .populate({
+        path: "ordenRefaccion",
+        populate: {
+          path: "items.refaccion",
+          select: "nombre numeroParte unidad precio",
+        },
+      });
 
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
 
