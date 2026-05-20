@@ -15,21 +15,15 @@ import rentaRoutes       from "./routes/renta.routes.js";
 import servicioRoutes    from "./routes/servicio.routes.js";
 import facturaRoutes     from "./routes/factura.routes.js";
 import asesorRoutes from "./routes/asesor.routes.js";
-import refaccionRoutes     from "./routes/refaccion.routes.js";
-import tipoServicioRoutes  from "./routes/tipoServicio.routes.js";
-import ordenRefaccionRoutes from "./routes/ordenRefaccion.routes.js";
+import refaccionRoutes        from "./routes/refaccion.routes.js";
+import tipoServicioRoutes     from "./routes/tipoServicio.routes.js";
+import ordenRefaccionRoutes   from "./routes/ordenRefaccion.routes.js";
+import refaccionUsadaRoutes   from "./routes/refaccionUsada.routes.js";
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 dns.setDefaultResultOrder('ipv4first');
 
 const app = express();
-// app.options('/(.*)', (req, res) => {
-//   res.setHeader('Access-Control-Allow-Origin', 'https://last-to-do-u9vd.vercel.app');
-//   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-//   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-//   res.setHeader('Access-Control-Allow-Credentials', 'true');
-//   res.sendStatus(204);
-// });
 app.use(cors({
   origin: [
     "https://last-to-do-u9vd.vercel.app",
@@ -53,32 +47,27 @@ app.use('/api/servicios',   servicioRoutes);
 app.use('/api/facturas',    facturaRoutes);
 app.use('/api/cotizaciones', cotizacionRoutes);
 app.use('/api/asesores', asesorRoutes);
-app.use("/api/refacciones",      refaccionRoutes);
-app.use("/api/tipos-servicio",   tipoServicioRoutes);
+app.use("/api/refacciones",       refaccionRoutes);
+app.use("/api/tipos-servicio",    tipoServicioRoutes);
 app.use("/api/ordenes-refaccion", ordenRefaccionRoutes);
+app.use("/api/refacciones-usadas", refaccionUsadaRoutes);
 
-
-// Conexión a MongoDB (sin app.listen — Vercel lo maneja)
 const MONGO_URI = process.env.MONGO_URI;
-
-if (!MONGO_URI) {
-  console.error('❌ Falta MONGO_URI en el .env');
-}
+if (!MONGO_URI) console.error('❌ Falta MONGO_URI en el .env');
 
 let isConnected = false;
 
 export async function connectDB() {
   if (isConnected) return;
-await mongoose.connect(MONGO_URI, {
-  dbName: "test",
-  serverSelectionTimeoutMS: 10000,
-  family: 4,
-});
+  await mongoose.connect(MONGO_URI, {
+    dbName: "test",
+    serverSelectionTimeoutMS: 10000,
+    family: 4,
+  });
   isConnected = true;
   console.log('✅ Conectado a MongoDB');
 }
 
-// Para desarrollo local
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 4000;
   connectDB()
