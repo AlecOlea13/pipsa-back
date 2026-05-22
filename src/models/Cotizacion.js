@@ -8,6 +8,12 @@ const itemSchema = new mongoose.Schema({
   imagen:         { type: String, default: null },
 }, { _id: false });
 
+const comentarioSchema = new mongoose.Schema({
+  texto:  { type: String, required: true, trim: true },
+  autor:  { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  fecha:  { type: Date, default: Date.now },
+}, { _id: true });
+
 const cotizacionSchema = new mongoose.Schema(
   {
     folio:        { type: String, required: true, trim: true, unique: true },
@@ -24,7 +30,8 @@ const cotizacionSchema = new mongoose.Schema(
     condiciones:  { type: String, trim: true },
     estatus:      { type: String, enum: ["borrador", "enviada", "aceptada", "rechazada"], default: "borrador" },
     notas:        { type: String, trim: true },
-    asesor: { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", default: null },
+    asesor:       { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", default: null },
+    comentarios:  [comentarioSchema],
   },
   { timestamps: true }
 );
