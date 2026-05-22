@@ -42,9 +42,10 @@ export async function createUser(req, res) {
 
 export async function updateUser(req, res) {
   try {
-    const { nombre, rol, activo, password } = req.body;
+    const { username, nombre, rol, activo, password } = req.body;
     const updates = { nombre, rol, activo };
 
+    if (username) updates.username = username.toLowerCase();
     if (password) updates.password = await bcrypt.hash(password, 12);
 
     const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true }).select("-password");
