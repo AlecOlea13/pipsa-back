@@ -6,6 +6,7 @@ export async function getRentas(req, res) {
     const rentas = await Renta.find()
       .populate("cliente", "nombre")
       .populate("montacargas", "numeroEconomico marca modelo")
+      .populate("asesor", "nombre")
       .sort({ createdAt: -1 });
     res.json(rentas);
   } catch (e) {
@@ -17,7 +18,8 @@ export async function getRenta(req, res) {
   try {
     const renta = await Renta.findById(req.params.id)
       .populate("cliente", "nombre")
-      .populate("montacargas", "numeroEconomico marca modelo");
+      .populate("montacargas", "numeroEconomico marca modelo")
+      .populate("asesor", "nombre");
     if (!renta) return res.status(404).json({ message: "Renta no encontrada" });
     res.json(renta);
   } catch (e) {
@@ -27,7 +29,9 @@ export async function getRenta(req, res) {
 
 export async function createRenta(req, res) {
   try {
-    const renta = new Renta(req.body);
+    const body = { ...req.body };
+    if (!body.asesor) delete body.asesor;
+    const renta = new Renta(body);
     await renta.save();
     await Montacargas.findByIdAndUpdate(req.body.montacargas, {
       clienteActual: req.body.cliente,
