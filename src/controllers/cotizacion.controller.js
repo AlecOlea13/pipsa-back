@@ -30,7 +30,10 @@ export async function getCotizacion(req, res) {
 
 export async function createCotizacion(req, res) {
   try {
-    const cotizacion = new Cotizacion(req.body);
+    const body = { ...req.body };
+    if (!body.montacargas) delete body.montacargas;
+    if (!body.asesor)      delete body.asesor;
+    const cotizacion = new Cotizacion(body);
     await cotizacion.save();
     res.status(201).json(cotizacion);
   } catch (e) {
@@ -61,13 +64,11 @@ export async function agregarComentario(req, res) {
   try {
     const { texto } = req.body;
     if (!texto?.trim()) return res.status(400).json({ message: "El comentario no puede estar vacío" });
-
     const cotizacion = await Cotizacion.findByIdAndUpdate(
       req.params.id,
       { $push: { comentarios: { texto: texto.trim(), autor: req.userId, fecha: new Date() } } },
       { new: true }
     ).populate("comentarios.autor", "nombre rol");
-
     if (!cotizacion) return res.status(404).json({ message: "Cotización no encontrada" });
     res.json(cotizacion.comentarios);
   } catch (e) {
