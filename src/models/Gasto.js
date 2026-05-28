@@ -1,15 +1,14 @@
 import mongoose from "mongoose";
 
 const conceptoSchema = new mongoose.Schema({
-  descripcion: { type: String, trim: true },
-  cantidad:    { type: Number, default: 1 },
+  descripcion:   { type: String, trim: true },
+  cantidad:      { type: Number, default: 1 },
   valorUnitario: { type: Number, default: 0 },
-  importe:     { type: Number, default: 0 },
+  importe:       { type: Number, default: 0 },
 }, { _id: false });
 
 const gastoSchema = new mongoose.Schema(
   {
-    // Del XML
     uuid:          { type: String, trim: true, unique: true, sparse: true },
     fechaEmision:  { type: Date },
     rfcEmisor:     { type: String, trim: true },
@@ -21,7 +20,7 @@ const gastoSchema = new mongoose.Schema(
     iva:           { type: Number, default: 0 },
     total:         { type: Number, default: 0 },
     moneda:        { type: String, default: "MXN" },
-    // Manual
+    asesor:        { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", default: null },
     notas:         { type: String, trim: true },
     xmlUrl:        { type: String, trim: true },
   },
