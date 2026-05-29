@@ -33,10 +33,29 @@ export async function createCotizacion(req, res) {
     const body = { ...req.body };
     if (!body.montacargas) delete body.montacargas;
     if (!body.asesor)      delete body.asesor;
+
+    // ── Folio automático ──────────────────────────────────────────────────
+    if (!body.folio) {
+      const anio = new Date().getFullYear();
+      const ultima = await Cotizacion.findOne(
+        { folio: { $regex: `^COT-${anio}-` } },
+        { folio: 1 },
+        { sort: { createdAt: -1 } }
+      );
+      let siguiente = 1;
+      if (ultima?.folio) {
+        const partes   = ultima.folio.split("-");
+        const num      = parseInt(partes[partes.length - 1]);
+        if (!isNaN(num)) siguiente = num + 1;
+      }
+      body.folio = `COT-${anio}-${String(siguiente).padStart(3, "0")}`;
+    }
+
     const cotizacion = new Cotizacion(body);
     await cotizacion.save();
     res.status(201).json(cotizacion);
   } catch (e) {
+    if (e.code === 11000) return res.status(409).json({ message: "Folio duplicado, intenta de nuevo" });
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
