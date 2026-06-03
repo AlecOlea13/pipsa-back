@@ -21,6 +21,7 @@ import ordenRefaccionRoutes   from "./routes/ordenRefaccion.routes.js";
 import refaccionUsadaRoutes   from "./routes/refaccionUsada.routes.js";
 import gastoRoutes from "./routes/gasto.routes.js";
 import gastoNoFiscalRoutes from "./routes/gastoNoFiscal.routes.js";
+import cxcRoutes from "./routes/cxc.routes.js";
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 dns.setDefaultResultOrder('ipv4first');
@@ -55,6 +56,7 @@ app.use("/api/ordenes-refaccion", ordenRefaccionRoutes);
 app.use("/api/refacciones-usadas", refaccionUsadaRoutes);
 app.use("/api/gastos", gastoRoutes);
 app.use("/api/gastos-no-fiscales", gastoNoFiscalRoutes);
+app.use("/api/cxc", cxcRoutes);
 
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) console.error('❌ Falta MONGO_URI en el .env');
