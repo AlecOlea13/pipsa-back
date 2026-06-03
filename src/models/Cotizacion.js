@@ -1,11 +1,17 @@
 import mongoose from "mongoose";
 
+const subconceptoSchema = new mongoose.Schema({
+  descripcion: { type: String, trim: true },
+  precio:      { type: Number, default: 0 },
+}, { _id: false });
+
 const itemSchema = new mongoose.Schema({
   cantidad:       { type: Number, required: true },
   descripcion:    { type: String, required: true, trim: true },
   precioUnitario: { type: Number, required: true },
   total:          { type: Number, required: true },
   imagen:         { type: String, default: null },
+  subconceptos:   { type: [subconceptoSchema], default: [] },
 }, { _id: false });
 
 const comentarioSchema = new mongoose.Schema({
