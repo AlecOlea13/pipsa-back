@@ -1,8 +1,9 @@
 import { Router } from "express";
-import {
-  getGastosNoFiscales, createGastoNoFiscal,
-  updateGastoNoFiscal, deleteGastoNoFiscal,
-} from "../controllers/gastoNoFiscal.controller.js";
+// import {
+//   getGastosNoFiscales, createGastoNoFiscal,
+//   updateGastoNoFiscal, deleteGastoNoFiscal,
+// } from "../controllers/gastoNoFiscal.controller.js";
+import { getGastosNoFiscales, createGastoNoFiscal, updateGastoNoFiscal, deleteGastoNoFiscal, pagarGastoNoFiscal } from "../controllers/gastoNoFiscal.controller.js";
 import { auth, requireRol } from "../middleware/auth.js";
 
 const router = Router();

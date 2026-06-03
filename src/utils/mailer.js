@@ -196,4 +196,37 @@ export async function enviarEmailCierreServicio(destinatarios, servicio) {
       html,
     });
   }
+  export async function enviarEmailPago({ tipo, proveedor, total, fechaPago, comprobante }) {
+  const fecha = fechaPago
+    ? new Date(fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
+    : "—";
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0c10;color:#e8eaf0;border-radius:12px;overflow:hidden">
+      <div style="background:#111318;padding:24px;border-bottom:2px solid #f59e0b">
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+             style="width:60px;background:#000;border-radius:6px;padding:4px" />
+        <h2 style="margin:12px 0 0;font-size:1.1rem;color:#f59e0b">Pago registrado</h2>
+      </div>
+      <div style="padding:24px">
+        <p style="margin:0 0 16px;font-size:0.95rem">Se registró un pago de gasto <strong>${tipo}</strong>:</p>
+        <table style="width:100%;border-collapse:collapse;font-size:0.9rem">
+          <tr><td style="padding:8px 0;color:#7a8099">Proveedor / Concepto</td><td style="padding:8px 0;font-weight:600">${proveedor}</td></tr>
+          <tr><td style="padding:8px 0;color:#7a8099">Total pagado</td><td style="padding:8px 0;font-weight:700;color:#22c55e">$${Number(total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td style="padding:8px 0;color:#7a8099">Fecha de pago</td><td style="padding:8px 0">${fecha}</td></tr>
+          ${comprobante ? `<tr><td style="padding:8px 0;color:#7a8099">Comprobante</td><td style="padding:8px 0"><a href="${comprobante}" style="color:#4f7cff">Ver comprobante</a></td></tr>` : ""}
+        </table>
+      </div>
+      <div style="padding:16px 24px;background:#111318;font-size:0.78rem;color:#7a8099">
+        Control Pipsa — Equipos Industriales y Montacargas de Guadalajara
+      </div>
+    </div>`;
+
+  await transporter.sendMail({
+    from:    `"Control Pipsa" <${process.env.MAIL_USER}>`,
+    to:      "admin@pipsamontacargas.com",
+    subject: `✅ Pago registrado — ${proveedor}`,
+    html,
+  });
+}
 }
