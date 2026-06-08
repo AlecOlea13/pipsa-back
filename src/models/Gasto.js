@@ -22,12 +22,12 @@ const gastoSchema = new mongoose.Schema(
     moneda:         { type: String, default: "MXN" },
     asesor:         { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", default: null },
     notas:          { type: String, trim: true },
+    folioFactura:   { type: String, trim: true, default: null },
     xmlUrl:         { type: String, trim: true },
-    // ── Pago ──
     estatus:        { type: String, enum: ["pendiente", "pagado"], default: "pendiente" },
     fechaPago:      { type: Date, default: null },
-    comprobantePago:{ type: String, trim: true, default: null }, // URL Cloudinary
-    complementoXml: { type: String, trim: true, default: null }, // URL o texto
+    comprobantePago:{ type: String, trim: true, default: null },
+    complementoXml: { type: String, trim: true, default: null },
   },
   { timestamps: true }
 );
