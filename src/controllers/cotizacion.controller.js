@@ -34,7 +34,6 @@ export async function createCotizacion(req, res) {
     if (!body.montacargas) delete body.montacargas;
     if (!body.asesor)      delete body.asesor;
 
-    // ── Folio automático ──────────────────────────────────────────────────
     if (!body.folio) {
       const anio = new Date().getFullYear();
       const ultima = await Cotizacion.findOne(
@@ -44,8 +43,8 @@ export async function createCotizacion(req, res) {
       );
       let siguiente = 1;
       if (ultima?.folio) {
-        const partes   = ultima.folio.split("-");
-        const num      = parseInt(partes[partes.length - 1]);
+        const partes = ultima.folio.split("-");
+        const num    = parseInt(partes[partes.length - 1]);
         if (!isNaN(num)) siguiente = num + 1;
       }
       body.folio = `COT-${anio}-${String(siguiente).padStart(3, "0")}`;
@@ -62,11 +61,22 @@ export async function createCotizacion(req, res) {
 
 export async function updateCotizacion(req, res) {
   try {
-    const cotizacion = await Cotizacion.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const body = { ...req.body };
+    if (!body.montacargas) delete body.montacargas;
+    if (!body.asesor)      delete body.asesor;
+    const cotizacion = await Cotizacion.findByIdAndUpdate(
+      req.params.id,
+      body,
+      { new: true, runValidators: false }
+    ).populate("cliente", "nombre direccion telefono contacto")
+     .populate("montacargas", "numeroEconomico marca modelo capacidad tipo serie alturaColapsada alturaLevante horquillas desplazadorLateral tipoLlantas voltaje tipoBateria incluyeCargador equipoSeguridad")
+     .populate("asesor", "nombre puesto telefono email")
+     .populate("comentarios.autor", "nombre rol");
     if (!cotizacion) return res.status(404).json({ message: "Cotización no encontrada" });
     res.json(cotizacion);
   } catch (e) {
-    res.status(500).json({ message: "Error en el servidor" });
+    console.error("Error updateCotizacion:", e.message);
+    res.status(500).json({ message: e.message });
   }
 }
 

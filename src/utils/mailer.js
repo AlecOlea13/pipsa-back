@@ -157,7 +157,7 @@ export async function enviarEmailPago({ tipo, proveedor, total, fechaPago, compr
           <tr><td style="padding:8px 0;color:#7a8099">Proveedor / Concepto</td><td style="padding:8px 0;font-weight:600">${proveedor}</td></tr>
           <tr><td style="padding:8px 0;color:#7a8099">Total pagado</td><td style="padding:8px 0;font-weight:700;color:#22c55e">$${Number(total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td></tr>
           <tr><td style="padding:8px 0;color:#7a8099">Fecha de pago</td><td style="padding:8px 0">${fecha}</td></tr>
-          ${comprobante ? `<tr><td style="padding:8px 0;color:#7a8099">Comprobante</td><td style="padding:8px 0"><a href="${comprobante}" style="color:#4f7cff">Ver comprobante</a></td></tr>` : ""}
+          ${comprobante ? `<tr><td style="padding:8px 0;color:#7a8099">Comprobante</td><td style="padding:8px 0"><span style="color:#22c55e">✅ Comprobante adjunto en el sistema</span></td></tr>` : ""}
         </table>
       </div>
       <div style="padding:16px 24px;background:#111318;font-size:0.78rem;color:#7a8099">
@@ -172,6 +172,7 @@ export async function enviarEmailPago({ tipo, proveedor, total, fechaPago, compr
     html,
   });
 }
+
 export async function enviarEmailCobro({ cliente, folio, total, fechaPago, complemento }) {
   const fecha = fechaPago
     ? new Date(fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
@@ -191,7 +192,7 @@ export async function enviarEmailCobro({ cliente, folio, total, fechaPago, compl
           <tr><td style="padding:8px 0;color:#7a8099">Folio factura</td><td style="padding:8px 0;font-weight:600">${folio}</td></tr>
           <tr><td style="padding:8px 0;color:#7a8099">Total cobrado</td><td style="padding:8px 0;font-weight:700;color:#22c55e">$${Number(total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td></tr>
           <tr><td style="padding:8px 0;color:#7a8099">Fecha de cobro</td><td style="padding:8px 0">${fecha}</td></tr>
-          ${complemento ? `<tr><td style="padding:8px 0;color:#7a8099">Complemento</td><td style="padding:8px 0"><a href="${complemento}" style="color:#4f7cff">Ver complemento</a></td></tr>` : ""}
+          ${complemento ? `<tr><td style="padding:8px 0;color:#7a8099">Complemento</td><td style="padding:8px 0"><span style="color:#22c55e">✅ Complemento adjunto en el sistema</span></td></tr>` : ""}
         </table>
       </div>
       <div style="padding:16px 24px;background:#111318;font-size:0.78rem;color:#7a8099">
