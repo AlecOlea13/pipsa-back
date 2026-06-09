@@ -193,7 +193,7 @@ export async function enviarEmailPago({ tipo, proveedor, total, fechaPago, compr
   });
 }
 
-export async function enviarEmailCobro({ cliente, folio, total, fechaPago, complemento }) {
+export async function enviarEmailPago({ tipo, proveedor, total, fechaPago, comprobante, emailProveedor }) {
   const fecha = fechaPago
     ? new Date(fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
     : "—";
@@ -203,16 +203,15 @@ export async function enviarEmailCobro({ cliente, folio, total, fechaPago, compl
       <div style="background:#111318;padding:24px;border-bottom:2px solid #f59e0b">
         <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
              style="width:60px;background:#000;border-radius:6px;padding:4px" />
-        <h2 style="margin:12px 0 0;font-size:1.1rem;color:#f59e0b">Cobro registrado</h2>
+        <h2 style="margin:12px 0 0;font-size:1.1rem;color:#f59e0b">Pago registrado</h2>
       </div>
       <div style="padding:24px">
-        <p style="margin:0 0 16px;font-size:0.95rem">Se registró el cobro de la siguiente factura:</p>
+        <p style="margin:0 0 16px;font-size:0.95rem">Se registró un pago de gasto <strong>${tipo}</strong>:</p>
         <table style="width:100%;border-collapse:collapse;font-size:0.9rem">
-          <tr><td style="padding:8px 0;color:#7a8099">Cliente</td><td style="padding:8px 0;font-weight:600">${cliente}</td></tr>
-          <tr><td style="padding:8px 0;color:#7a8099">Folio factura</td><td style="padding:8px 0;font-weight:600">${folio}</td></tr>
-          <tr><td style="padding:8px 0;color:#7a8099">Total cobrado</td><td style="padding:8px 0;font-weight:700;color:#22c55e">$${Number(total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td></tr>
-          <tr><td style="padding:8px 0;color:#7a8099">Fecha de cobro</td><td style="padding:8px 0">${fecha}</td></tr>
-          ${complemento ? `<tr><td style="padding:8px 0;color:#7a8099">Complemento</td><td style="padding:8px 0"><span style="color:#22c55e">✅ Adjunto en este correo</span></td></tr>` : ""}
+          <tr><td style="padding:8px 0;color:#7a8099">Proveedor / Concepto</td><td style="padding:8px 0;font-weight:600">${proveedor}</td></tr>
+          <tr><td style="padding:8px 0;color:#7a8099">Total pagado</td><td style="padding:8px 0;font-weight:700;color:#22c55e">$${Number(total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td></tr>
+          <tr><td style="padding:8px 0;color:#7a8099">Fecha de pago</td><td style="padding:8px 0">${fecha}</td></tr>
+          ${comprobante ? `<tr><td style="padding:8px 0;color:#7a8099">Comprobante</td><td style="padding:8px 0"><span style="color:#22c55e">✅ Adjunto en este correo</span></td></tr>` : ""}
         </table>
       </div>
       <div style="padding:16px 24px;background:#111318;font-size:0.78rem;color:#7a8099">
@@ -221,15 +220,15 @@ export async function enviarEmailCobro({ cliente, folio, total, fechaPago, compl
     </div>`;
 
   const attachments = [];
-  if (complemento) {
+  if (comprobante) {
     try {
-      const [header, base64Data] = complemento.split(",");
+      const [header, base64Data] = comprobante.split(",");
       const mimeType = header.match(/data:([^;]+);/)?.[1] ?? "application/octet-stream";
       const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") ?? "bin";
       attachments.push({
-        filename: `complemento_${folio}.${ext}`,
-        content:  base64Data,
-        encoding: "base64",
+        filename:    `comprobante_${proveedor.replace(/\s+/g, "_").slice(0, 30)}.${ext}`,
+        content:     base64Data,
+        encoding:    "base64",
         contentType: mimeType,
       });
     } catch (e) {
@@ -237,11 +236,18 @@ export async function enviarEmailCobro({ cliente, folio, total, fechaPago, compl
     }
   }
 
-  await transporter.sendMail({
-    from:        `"Control Pipsa" <${process.env.MAIL_USER}>`,
-    to:          "admin@pipsamontacargas.com",
-    subject:     `💰 Cobro registrado — ${folio} | ${cliente}`,
-    html,
-    attachments,
-  });
+  // Enviar a admin siempre, y al proveedor si tiene email
+  const ADMIN = "admin@pipsamontacargas.com";
+  const destinatarios = [ADMIN];
+  if (emailProveedor && emailProveedor !== ADMIN) destinatarios.push(emailProveedor);
+
+  for (const to of destinatarios) {
+    await transporter.sendMail({
+      from:        `"Control Pipsa" <${process.env.MAIL_USER}>`,
+      to,
+      subject:     `✅ Pago registrado — ${proveedor}`,
+      html,
+      attachments,
+    });
+  }
 }
