@@ -157,7 +157,7 @@ export async function enviarEmailPago({ tipo, proveedor, total, fechaPago, compr
           <tr><td style="padding:8px 0;color:#7a8099">Proveedor / Concepto</td><td style="padding:8px 0;font-weight:600">${proveedor}</td></tr>
           <tr><td style="padding:8px 0;color:#7a8099">Total pagado</td><td style="padding:8px 0;font-weight:700;color:#22c55e">$${Number(total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td></tr>
           <tr><td style="padding:8px 0;color:#7a8099">Fecha de pago</td><td style="padding:8px 0">${fecha}</td></tr>
-          ${comprobante ? `<tr><td style="padding:8px 0;color:#7a8099">Comprobante</td><td style="padding:8px 0"><span style="color:#22c55e">✅ Comprobante adjunto en el sistema</span></td></tr>` : ""}
+          ${comprobante ? `<tr><td style="padding:8px 0;color:#7a8099">Comprobante</td><td style="padding:8px 0"><span style="color:#22c55e">✅ Adjunto en este correo</span></td></tr>` : ""}
         </table>
       </div>
       <div style="padding:16px 24px;background:#111318;font-size:0.78rem;color:#7a8099">
@@ -165,11 +165,31 @@ export async function enviarEmailPago({ tipo, proveedor, total, fechaPago, compr
       </div>
     </div>`;
 
+  // Construir adjunto desde base64
+  const attachments = [];
+  if (comprobante) {
+    try {
+      // comprobante es "data:application/pdf;base64,XXXX" o "data:image/jpeg;base64,XXXX"
+      const [header, base64Data] = comprobante.split(",");
+      const mimeType = header.match(/data:([^;]+);/)?.[1] ?? "application/octet-stream";
+      const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") ?? "bin";
+      attachments.push({
+        filename: `comprobante_${proveedor.replace(/\s+/g, "_").slice(0, 30)}.${ext}`,
+        content:  base64Data,
+        encoding: "base64",
+        contentType: mimeType,
+      });
+    } catch (e) {
+      console.error("Error procesando adjunto:", e.message);
+    }
+  }
+
   await transporter.sendMail({
-    from:    `"Control Pipsa" <${process.env.MAIL_USER}>`,
-    to:      "admin@pipsamontacargas.com",
-    subject: `✅ Pago registrado — ${proveedor}`,
+    from:        `"Control Pipsa" <${process.env.MAIL_USER}>`,
+    to:          "admin@pipsamontacargas.com",
+    subject:     `✅ Pago registrado — ${proveedor}`,
     html,
+    attachments,
   });
 }
 
@@ -192,7 +212,7 @@ export async function enviarEmailCobro({ cliente, folio, total, fechaPago, compl
           <tr><td style="padding:8px 0;color:#7a8099">Folio factura</td><td style="padding:8px 0;font-weight:600">${folio}</td></tr>
           <tr><td style="padding:8px 0;color:#7a8099">Total cobrado</td><td style="padding:8px 0;font-weight:700;color:#22c55e">$${Number(total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td></tr>
           <tr><td style="padding:8px 0;color:#7a8099">Fecha de cobro</td><td style="padding:8px 0">${fecha}</td></tr>
-          ${complemento ? `<tr><td style="padding:8px 0;color:#7a8099">Complemento</td><td style="padding:8px 0"><span style="color:#22c55e">✅ Complemento adjunto en el sistema</span></td></tr>` : ""}
+          ${complemento ? `<tr><td style="padding:8px 0;color:#7a8099">Complemento</td><td style="padding:8px 0"><span style="color:#22c55e">✅ Adjunto en este correo</span></td></tr>` : ""}
         </table>
       </div>
       <div style="padding:16px 24px;background:#111318;font-size:0.78rem;color:#7a8099">
@@ -200,10 +220,28 @@ export async function enviarEmailCobro({ cliente, folio, total, fechaPago, compl
       </div>
     </div>`;
 
+  const attachments = [];
+  if (complemento) {
+    try {
+      const [header, base64Data] = complemento.split(",");
+      const mimeType = header.match(/data:([^;]+);/)?.[1] ?? "application/octet-stream";
+      const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") ?? "bin";
+      attachments.push({
+        filename: `complemento_${folio}.${ext}`,
+        content:  base64Data,
+        encoding: "base64",
+        contentType: mimeType,
+      });
+    } catch (e) {
+      console.error("Error procesando adjunto:", e.message);
+    }
+  }
+
   await transporter.sendMail({
-    from:    `"Control Pipsa" <${process.env.MAIL_USER}>`,
-    to:      "admin@pipsamontacargas.com",
-    subject: `💰 Cobro registrado — ${folio} | ${cliente}`,
+    from:        `"Control Pipsa" <${process.env.MAIL_USER}>`,
+    to:          "admin@pipsamontacargas.com",
+    subject:     `💰 Cobro registrado — ${folio} | ${cliente}`,
     html,
+    attachments,
   });
 }
