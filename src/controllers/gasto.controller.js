@@ -1,10 +1,18 @@
 import Gasto from "../models/Gasto.js";
+import Proveedor from "../models/Proveedor.js";
 import { enviarEmailPago } from "../utils/mailer.js";
+
+async function matchProveedor(rfcEmisor, proveedorManual) {
+  if (proveedorManual) return proveedorManual;
+  if (!rfcEmisor) return null;
+  const p = await Proveedor.findOne({ rfc: rfcEmisor.trim(), activo: true });
+  return p?._id ?? null;
+}
 
 export async function getGastos(req, res) {
   try {
     const gastos = await Gasto.find()
-      .populate("asesor", "nombre")
+      .populate("asesor",    "nombre")
       .populate("proveedor", "nombre email")
       .sort({ fechaEmision: -1 });
     res.json(gastos);
@@ -16,8 +24,8 @@ export async function getGastos(req, res) {
 export async function createGasto(req, res) {
   try {
     const body = { ...req.body };
-    if (!body.asesor)    delete body.asesor;
-    if (!body.proveedor) delete body.proveedor;
+    if (!body.asesor) delete body.asesor;
+    body.proveedor = await matchProveedor(body.rfcEmisor, body.proveedor || null);
     const gasto = new Gasto(body);
     await gasto.save();
     await gasto.populate([
@@ -34,8 +42,8 @@ export async function createGasto(req, res) {
 export async function updateGasto(req, res) {
   try {
     const body = { ...req.body };
-    if (!body.asesor)     delete body.asesor;
-    if (!body.proveedor)  delete body.proveedor;
+    if (!body.asesor) delete body.asesor;
+    body.proveedor = await matchProveedor(body.rfcEmisor, body.proveedor || null);
     const gasto = await Gasto.findByIdAndUpdate(req.params.id, body, { new: true })
       .populate("asesor",    "nombre")
       .populate("proveedor", "nombre email");
@@ -61,7 +69,7 @@ export async function pagarGasto(req, res) {
     const gasto = await Gasto.findByIdAndUpdate(
       req.params.id,
       {
-        estatus: "pagado",
+        estatus:         "pagado",
         fechaPago:       fechaPago       ? new Date(fechaPago) : new Date(),
         comprobantePago: comprobantePago ?? null,
         complementoXml:  complementoXml  ?? null,
@@ -75,12 +83,12 @@ export async function pagarGasto(req, res) {
     try {
       const emailProveedor = gasto.proveedor?.email ?? null;
       await enviarEmailPago({
-        tipo:            "fiscal",
-        proveedor:       gasto.nombreEmisor ?? "—",
-        total:           gasto.total,
-        fechaPago:       gasto.fechaPago,
-        comprobante:     comprobantePago ?? null,
-        emailProveedor,  // nuevo
+        tipo:          "fiscal",
+        proveedor:     gasto.nombreEmisor ?? "—",
+        total:         gasto.total,
+        fechaPago:     gasto.fechaPago,
+        comprobante:   comprobantePago ?? null,
+        emailProveedor,
       });
     } catch (mailErr) {
       console.error("Error enviando email de pago:", mailErr.message);
