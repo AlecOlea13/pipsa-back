@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const itemSchema = new mongoose.Schema({
-  nombre:   { type: String, trim: true, required: true },
+  nombre:   { type: String, trim: true, default: "" },
   cantidad: { type: Number, default: 1 },
 }, { _id: false });
 
