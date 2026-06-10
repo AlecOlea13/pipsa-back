@@ -3,7 +3,7 @@ import { getTipos, createTipo, updateTipo, deleteTipo } from "../controllers/tip
 import { auth, requireRol } from "../middleware/auth.js";
 
 const router = Router();
-const rw = requireRol("developer", "gerencia");
+const rw = requireRol("developer", "gerencia", "oficina");
 
 router.get("/",       auth, getTipos);
 router.post("/",      auth, rw, createTipo);
