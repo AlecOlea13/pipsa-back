@@ -3,14 +3,12 @@ import TipoServicio from "../models/TipoServicio.js";
 export async function getTipos(req, res) {
   try {
     const tipos = await TipoServicio.find({ activo: true })
-      .populate("refacciones.refaccion", "nombre numeroParte unidad")
       .sort({ nombre: 1 });
     res.json(tipos);
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
-
 export async function createTipo(req, res) {
   try {
     const tipo = await TipoServicio.create(req.body);
