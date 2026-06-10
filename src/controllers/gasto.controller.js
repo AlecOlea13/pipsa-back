@@ -83,13 +83,14 @@ export async function pagarGasto(req, res) {
     try {
       const emailProveedor = gasto.proveedor?.email ?? null;
       await enviarEmailPago({
-        tipo:          "fiscal",
-        proveedor:     gasto.nombreEmisor ?? "—",
-        total:         gasto.total,
-        fechaPago:     gasto.fechaPago,
-        comprobante:   comprobantePago ?? null,
-        emailProveedor,
-      });
+      tipo:          "fiscal",
+      proveedor:     gasto.nombreEmisor ?? "—",
+      folio:         gasto.folioFactura ?? null,
+      total:         gasto.total,
+      fechaPago:     gasto.fechaPago,
+      comprobante:   comprobantePago ?? null,
+      emailProveedor,
+    });
     } catch (mailErr) {
       console.error("Error enviando email de pago:", mailErr.message);
     }

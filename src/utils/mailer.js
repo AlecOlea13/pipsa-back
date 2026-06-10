@@ -193,7 +193,7 @@ export async function enviarEmailCierreServicio(destinatarios, servicio) {
 //   });
 // }
 
-export async function enviarEmailPago({ tipo, proveedor, total, fechaPago, comprobante, emailProveedor }) {
+export async function enviarEmailPago({ tipo, proveedor, total, fechaPago, comprobante, emailProveedor, folio }) {
   const fecha = fechaPago
     ? new Date(fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
     : "—";
@@ -209,6 +209,7 @@ export async function enviarEmailPago({ tipo, proveedor, total, fechaPago, compr
         <p style="margin:0 0 16px;font-size:0.95rem">Se registró un pago de gasto <strong>${tipo}</strong>:</p>
         <table style="width:100%;border-collapse:collapse;font-size:0.9rem">
           <tr><td style="padding:8px 0;color:#7a8099">Proveedor / Concepto</td><td style="padding:8px 0;font-weight:600">${proveedor}</td></tr>
+          ${folio ? `<tr><td style="padding:8px 0;color:#7a8099">No. Factura</td><td style="padding:8px 0;font-weight:600;color:#f59e0b">${folio}</td></tr>` : ""}
           <tr><td style="padding:8px 0;color:#7a8099">Total pagado</td><td style="padding:8px 0;font-weight:700;color:#22c55e">$${Number(total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td></tr>
           <tr><td style="padding:8px 0;color:#7a8099">Fecha de pago</td><td style="padding:8px 0">${fecha}</td></tr>
           ${comprobante ? `<tr><td style="padding:8px 0;color:#7a8099">Comprobante</td><td style="padding:8px 0"><span style="color:#22c55e">✅ Adjunto en este correo</span></td></tr>` : ""}
@@ -236,16 +237,25 @@ export async function enviarEmailPago({ tipo, proveedor, total, fechaPago, compr
     }
   }
 
-  // Enviar a admin siempre, y al proveedor si tiene email
-  const ADMIN = "admin@pipsamontacargas.com";
-  const destinatarios = [ADMIN];
-  if (emailProveedor && emailProveedor !== ADMIN) destinatarios.push(emailProveedor);
+  const subject = folio
+    ? `✅ Pago registrado — ${folio} | ${proveedor}`
+    : `✅ Pago registrado — ${proveedor}`;
 
-  for (const to of destinatarios) {
+  // Siempre al admin
+  await transporter.sendMail({
+    from:        `"Control Pipsa" <${process.env.MAIL_USER}>`,
+    to:          "admin@pipsamontacargas.com",
+    subject,
+    html,
+    attachments,
+  });
+
+  // Al proveedor si tiene email distinto al admin
+  if (emailProveedor && emailProveedor !== "admin@pipsamontacargas.com") {
     await transporter.sendMail({
       from:        `"Control Pipsa" <${process.env.MAIL_USER}>`,
-      to,
-      subject:     `✅ Pago registrado — ${proveedor}`,
+      to:          emailProveedor,
+      subject,
       html,
       attachments,
     });
