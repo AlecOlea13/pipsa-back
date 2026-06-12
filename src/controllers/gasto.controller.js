@@ -119,3 +119,55 @@ export async function pagarGasto(req, res) {
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
+import { enviarEmailPago, enviarEmailPagoMultiple } from "../utils/mailer.js";
+
+export async function pagarGastoMultiple(req, res) {
+  try {
+    const { ids, fechaPago, comprobantePago, complementoXml } = req.body;
+    if (!ids?.length) return res.status(400).json({ message: "Sin facturas seleccionadas" });
+
+    const fecha = fechaPago ? new Date(fechaPago) : new Date();
+    const gastos = [];
+
+    for (const id of ids) {
+      const g = await Gasto.findByIdAndUpdate(
+        id,
+        {
+          estatus:         "pagado",
+          fechaPago:       fecha,
+          comprobantePago: comprobantePago ?? null,
+          complementoXml:  complementoXml  ?? null,
+        },
+        { new: true }
+      )
+        .populate("asesor",    "nombre")
+        .populate("proveedor", "nombre email");
+      if (g) gastos.push(g);
+    }
+
+    if (!gastos.length) return res.status(404).json({ message: "No se encontraron gastos" });
+
+    // Email consolidado
+    try {
+      const primerGasto    = gastos[0];
+      const emailProveedor = primerGasto.proveedor?.email ?? null;
+      const totalGeneral   = gastos.reduce((acc, g) => acc + g.total, 0);
+      const facturas       = gastos.map(g => ({ folio: g.folioFactura ?? g._id, total: g.total }));
+
+      await enviarEmailPagoMultiple({
+        proveedor:     primerGasto.nombreEmisor ?? "—",
+        facturas,
+        totalGeneral,
+        fechaPago:     fecha,
+        comprobante:   comprobantePago ?? null,
+        emailProveedor,
+      });
+    } catch (mailErr) {
+      console.error("Error enviando email pago múltiple:", mailErr.message);
+    }
+
+    res.json(gastos);
+  } catch (e) {
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+}
