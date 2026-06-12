@@ -1,6 +1,6 @@
 import Gasto from "../models/Gasto.js";
 import Proveedor from "../models/Proveedor.js";
-import { enviarEmailPago } from "../utils/mailer.js";
+import { enviarEmailPago, enviarEmailPagoMultiple } from "../utils/mailer.js";
 
 async function matchProveedor(rfcEmisor, proveedorManual) {
   if (proveedorManual) return proveedorManual;
@@ -49,7 +49,6 @@ export async function updateGasto(req, res) {
       .populate("proveedor", "nombre email");
     if (!gasto) return res.status(404).json({ message: "Gasto no encontrado" });
 
-    // Si se está reemplazando el comprobante de un gasto ya pagado, reenviar email
     if (body.comprobantePago && gasto.estatus === "pagado") {
       try {
         const emailProveedor = gasto.proveedor?.email ?? null;
@@ -102,14 +101,14 @@ export async function pagarGasto(req, res) {
     try {
       const emailProveedor = gasto.proveedor?.email ?? null;
       await enviarEmailPago({
-      tipo:          "fiscal",
-      proveedor:     gasto.nombreEmisor ?? "—",
-      folio:         gasto.folioFactura ?? null,
-      total:         gasto.total,
-      fechaPago:     gasto.fechaPago,
-      comprobante:   comprobantePago ?? null,
-      emailProveedor,
-    });
+        tipo:          "fiscal",
+        proveedor:     gasto.nombreEmisor ?? "—",
+        folio:         gasto.folioFactura ?? null,
+        total:         gasto.total,
+        fechaPago:     gasto.fechaPago,
+        comprobante:   comprobantePago ?? null,
+        emailProveedor,
+      });
     } catch (mailErr) {
       console.error("Error enviando email de pago:", mailErr.message);
     }
@@ -119,7 +118,6 @@ export async function pagarGasto(req, res) {
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
-import { enviarEmailPago, enviarEmailPagoMultiple } from "../utils/mailer.js";
 
 export async function pagarGastoMultiple(req, res) {
   try {
@@ -147,7 +145,6 @@ export async function pagarGastoMultiple(req, res) {
 
     if (!gastos.length) return res.status(404).json({ message: "No se encontraron gastos" });
 
-    // Email consolidado
     try {
       const primerGasto    = gastos[0];
       const emailProveedor = primerGasto.proveedor?.email ?? null;
