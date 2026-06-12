@@ -42,12 +42,31 @@ export async function createGasto(req, res) {
 export async function updateGasto(req, res) {
   try {
     const body = { ...req.body };
-    if (!body.asesor) delete body.asesor;
+    if (!body.asesor)    delete body.asesor;
     body.proveedor = await matchProveedor(body.rfcEmisor, body.proveedor || null);
     const gasto = await Gasto.findByIdAndUpdate(req.params.id, body, { new: true })
       .populate("asesor",    "nombre")
       .populate("proveedor", "nombre email");
     if (!gasto) return res.status(404).json({ message: "Gasto no encontrado" });
+
+    // Si se está reemplazando el comprobante de un gasto ya pagado, reenviar email
+    if (body.comprobantePago && gasto.estatus === "pagado") {
+      try {
+        const emailProveedor = gasto.proveedor?.email ?? null;
+        await enviarEmailPago({
+          tipo:          "fiscal",
+          proveedor:     gasto.nombreEmisor ?? "—",
+          folio:         gasto.folioFactura ?? null,
+          total:         gasto.total,
+          fechaPago:     gasto.fechaPago,
+          comprobante:   body.comprobantePago,
+          emailProveedor,
+        });
+      } catch (mailErr) {
+        console.error("Error reenviando email con comprobante:", mailErr.message);
+      }
+    }
+
     res.json(gasto);
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
