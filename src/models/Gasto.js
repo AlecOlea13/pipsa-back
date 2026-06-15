@@ -7,6 +7,14 @@ const conceptoSchema = new mongoose.Schema({
   importe:       { type: Number, default: 0 },
 }, { _id: false });
 
+const pagoSchema = new mongoose.Schema({
+  monto:           { type: Number, required: true },
+  fechaPago:       { type: Date, default: Date.now },
+  comprobantePago: { type: String, trim: true, default: null },
+  complementoXml:  { type: String, trim: true, default: null },
+  notas:           { type: String, trim: true, default: null },
+}, { timestamps: true });
+
 const gastoSchema = new mongoose.Schema(
   {
     uuid:           { type: String, trim: true, unique: true, sparse: true },
@@ -25,10 +33,11 @@ const gastoSchema = new mongoose.Schema(
     notas:          { type: String, trim: true },
     folioFactura:   { type: String, trim: true, default: null },
     xmlUrl:         { type: String, trim: true },
-    estatus:        { type: String, enum: ["pendiente", "pagado", "cancelada"], default: "pendiente" },
+    estatus:        { type: String, enum: ["pendiente", "pagado", "parcial", "cancelada"], default: "pendiente" },
     fechaPago:      { type: Date, default: null },
     comprobantePago:{ type: String, trim: true, default: null },
     complementoXml: { type: String, trim: true, default: null },
+    pagos:          { type: [pagoSchema], default: [] },
   },
   { timestamps: true }
 );

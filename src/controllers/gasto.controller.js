@@ -119,6 +119,69 @@ export async function pagarGasto(req, res) {
   }
 }
 
+export async function agregarPagoParcial(req, res) {
+  try {
+    const { monto, fechaPago, comprobantePago, complementoXml, notas } = req.body;
+    if (!monto || monto <= 0) return res.status(400).json({ message: "El monto debe ser mayor a 0" });
+
+    const gasto = await Gasto.findById(req.params.id)
+      .populate("asesor",    "nombre")
+      .populate("proveedor", "nombre email");
+    if (!gasto) return res.status(404).json({ message: "Gasto no encontrado" });
+    if (gasto.estatus === "cancelada") return res.status(400).json({ message: "No se puede pagar una factura cancelada" });
+    if (gasto.estatus === "pagado")    return res.status(400).json({ message: "Esta factura ya está pagada completamente" });
+
+    const nuevoPago = {
+      monto:           Number(monto),
+      fechaPago:       fechaPago ? new Date(fechaPago) : new Date(),
+      comprobantePago: comprobantePago ?? null,
+      complementoXml:  complementoXml  ?? null,
+      notas:           notas ?? null,
+    };
+
+    gasto.pagos.push(nuevoPago);
+
+    const totalPagado = gasto.pagos.reduce((acc, p) => acc + p.monto, 0);
+    const quedaPendiente = gasto.total - totalPagado;
+
+    if (quedaPendiente <= 0.01) {
+      gasto.estatus         = "pagado";
+      gasto.fechaPago       = nuevoPago.fechaPago;
+      gasto.comprobantePago = comprobantePago ?? null;
+      gasto.complementoXml  = complementoXml  ?? null;
+    } else {
+      gasto.estatus = "parcial";
+    }
+
+    await gasto.save();
+
+    // Email de pago parcial
+    try {
+      const emailProveedor = gasto.proveedor?.email ?? null;
+      const esCompleto     = gasto.estatus === "pagado";
+      await enviarEmailPago({
+        tipo:          "fiscal",
+        proveedor:     gasto.nombreEmisor ?? "—",
+        folio:         gasto.folioFactura ?? null,
+        total:         Number(monto),
+        fechaPago:     nuevoPago.fechaPago,
+        comprobante:   comprobantePago ?? null,
+        emailProveedor,
+        esParcial:     !esCompleto,
+        totalFactura:  gasto.total,
+        totalPagado,
+        pendiente:     Math.max(0, quedaPendiente),
+      });
+    } catch (mailErr) {
+      console.error("Error enviando email pago parcial:", mailErr.message);
+    }
+
+    res.json(gasto);
+  } catch (e) {
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+}
+
 export async function cancelarGasto(req, res) {
   try {
     const gasto = await Gasto.findByIdAndUpdate(
