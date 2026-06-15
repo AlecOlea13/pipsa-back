@@ -119,6 +119,22 @@ export async function pagarGasto(req, res) {
   }
 }
 
+export async function cancelarGasto(req, res) {
+  try {
+    const gasto = await Gasto.findByIdAndUpdate(
+      req.params.id,
+      { estatus: "cancelada" },
+      { new: true }
+    )
+      .populate("asesor",    "nombre")
+      .populate("proveedor", "nombre email");
+    if (!gasto) return res.status(404).json({ message: "Gasto no encontrado" });
+    res.json(gasto);
+  } catch (e) {
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+}
+
 export async function pagarGastoMultiple(req, res) {
   try {
     const { ids, fechaPago, comprobantePago, complementoXml } = req.body;
