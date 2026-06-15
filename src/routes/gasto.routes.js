@@ -12,7 +12,7 @@ import {
 
 const router = Router();
 const canAccess = requireRol("developer", "gerencia", "oficina");
-const canCancel = requireRol("developer", "gerencia");
+const canCancel = requireRol("developer", "gerencia", "oficina");
 
 router.get("/",               auth, canAccess, getGastos);
 router.post("/",              auth, canAccess, createGasto);
