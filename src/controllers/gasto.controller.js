@@ -129,7 +129,6 @@ export async function agregarPagoParcial(req, res) {
       .populate("proveedor", "nombre email");
     if (!gasto) return res.status(404).json({ message: "Gasto no encontrado" });
     if (gasto.estatus === "cancelada") return res.status(400).json({ message: "No se puede pagar una factura cancelada" });
-    if (gasto.estatus === "pagado")    return res.status(400).json({ message: "Esta factura ya está pagada completamente" });
 
     const nuevoPago = {
       monto:           Number(monto),
@@ -141,7 +140,7 @@ export async function agregarPagoParcial(req, res) {
 
     gasto.pagos.push(nuevoPago);
 
-    const totalPagado = gasto.pagos.reduce((acc, p) => acc + p.monto, 0);
+    const totalPagado    = gasto.pagos.reduce((acc, p) => acc + p.monto, 0);
     const quedaPendiente = gasto.total - totalPagado;
 
     if (quedaPendiente <= 0.01) {
@@ -155,7 +154,6 @@ export async function agregarPagoParcial(req, res) {
 
     await gasto.save();
 
-    // Email de pago parcial
     try {
       const emailProveedor = gasto.proveedor?.email ?? null;
       const esCompleto     = gasto.estatus === "pagado";
@@ -203,7 +201,7 @@ export async function pagarGastoMultiple(req, res) {
     const { ids, fechaPago, comprobantePago, complementoXml } = req.body;
     if (!ids?.length) return res.status(400).json({ message: "Sin facturas seleccionadas" });
 
-    const fecha = fechaPago ? new Date(fechaPago) : new Date();
+    const fecha  = fechaPago ? new Date(fechaPago) : new Date();
     const gastos = [];
 
     for (const id of ids) {
