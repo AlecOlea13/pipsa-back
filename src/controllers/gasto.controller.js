@@ -130,6 +130,9 @@ export async function agregarPagoParcial(req, res) {
     if (!gasto) return res.status(404).json({ message: "Gasto no encontrado" });
     if (gasto.estatus === "cancelada") return res.status(400).json({ message: "No se puede pagar una factura cancelada" });
 
+    // Guardar estatus previo para detectar si es un complemento
+    const estatusAnterior = gasto.estatus;
+
     const nuevoPago = {
       monto:           Number(monto),
       fechaPago:       fechaPago ? new Date(fechaPago) : new Date(),
@@ -143,7 +146,10 @@ export async function agregarPagoParcial(req, res) {
     const totalPagado    = gasto.pagos.reduce((acc, p) => acc + p.monto, 0);
     const quedaPendiente = gasto.total - totalPagado;
 
-    if (quedaPendiente <= 0.01) {
+    if (estatusAnterior === "pagado") {
+      // Es un complemento sobre una factura ya pagada — mantener estatus pagado
+      gasto.estatus = "pagado";
+    } else if (quedaPendiente <= 0.01) {
       gasto.estatus         = "pagado";
       gasto.fechaPago       = nuevoPago.fechaPago;
       gasto.comprobantePago = comprobantePago ?? null;
@@ -155,8 +161,10 @@ export async function agregarPagoParcial(req, res) {
     await gasto.save();
 
     try {
-      const emailProveedor = gasto.proveedor?.email ?? null;
-      const esCompleto     = gasto.estatus === "pagado";
+      const emailProveedor  = gasto.proveedor?.email ?? null;
+      const esComplemento   = estatusAnterior === "pagado";
+      const esCompleto      = gasto.estatus === "pagado";
+
       await enviarEmailPago({
         tipo:          "fiscal",
         proveedor:     gasto.nombreEmisor ?? "—",
@@ -165,7 +173,7 @@ export async function agregarPagoParcial(req, res) {
         fechaPago:     nuevoPago.fechaPago,
         comprobante:   comprobantePago ?? null,
         emailProveedor,
-        esParcial:     !esCompleto,
+        esParcial:     !esComplemento && !esCompleto,
         totalFactura:  gasto.total,
         totalPagado,
         pendiente:     Math.max(0, quedaPendiente),
