@@ -73,3 +73,57 @@ export async function cobrarCxc(req, res) {
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
+
+export async function cobrarPorRep(req, res) {
+  try {
+    const { pagos, fechaPago, complementoPago } = req.body;
+    // pagos = [{ uuid, montoPagado }]
+    if (!pagos?.length) return res.status(400).json({ message: "Sin pagos para procesar" });
+
+    const resultados = [];
+
+    for (const pago of pagos) {
+      const cxc = await CuentaCobrar.findOne({ uuid: pago.uuid });
+
+      if (!cxc) {
+        resultados.push({ uuid: pago.uuid, encontrada: false });
+        continue;
+      }
+
+      if (cxc.estatus === "cobrada") {
+        resultados.push({ uuid: pago.uuid, encontrada: true, yaEstaba: true, folioFactura: cxc.folioFactura, nombreReceptor: cxc.nombreReceptor });
+        continue;
+      }
+
+      cxc.estatus         = "cobrada";
+      cxc.fechaPago       = fechaPago ? new Date(fechaPago) : new Date();
+      cxc.complementoPago = complementoPago ?? null;
+      await cxc.save();
+
+      try {
+        await enviarEmailCobro({
+          cliente:     cxc.nombreReceptor ?? "—",
+          folio:       cxc.folioFactura ?? cxc.uuid?.slice(0, 8) ?? "—",
+          total:       pago.montoPagado ?? cxc.total,
+          fechaPago:   cxc.fechaPago,
+          complemento: complementoPago ?? null,
+        });
+      } catch (mailErr) {
+        console.error("Error enviando email de cobro automático:", mailErr.message);
+      }
+
+      resultados.push({
+        uuid: pago.uuid,
+        encontrada: true,
+        yaEstaba: false,
+        folioFactura: cxc.folioFactura,
+        nombreReceptor: cxc.nombreReceptor,
+        total: cxc.total,
+      });
+    }
+
+    res.json({ resultados });
+  } catch (e) {
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+}
