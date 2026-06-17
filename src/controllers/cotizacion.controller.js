@@ -34,6 +34,14 @@ export async function createCotizacion(req, res) {
     if (!body.montacargas) delete body.montacargas;
     if (!body.asesor)      delete body.asesor;
 
+    // Cliente ocasional vs. cliente de catálogo — mutuamente excluyentes
+    if (body.clienteOcasional?.nombre) {
+      body.cliente = null;
+    } else {
+      delete body.clienteOcasional;
+      if (!body.cliente) delete body.cliente;
+    }
+
     if (!body.folio) {
       const anio = new Date().getFullYear();
       const ultima = await Cotizacion.findOne(
@@ -64,6 +72,13 @@ export async function updateCotizacion(req, res) {
     const body = { ...req.body };
     if (!body.montacargas) delete body.montacargas;
     if (!body.asesor)      delete body.asesor;
+
+    if (body.clienteOcasional?.nombre) {
+      body.cliente = null;
+    } else if (body.clienteOcasional !== undefined) {
+      body.clienteOcasional = null;
+    }
+
     const cotizacion = await Cotizacion.findByIdAndUpdate(
       req.params.id,
       body,

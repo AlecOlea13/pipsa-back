@@ -20,11 +20,19 @@ const comentarioSchema = new mongoose.Schema({
   fecha:  { type: Date, default: Date.now },
 }, { _id: true });
 
+const clienteOcasionalSchema = new mongoose.Schema({
+  nombre:    { type: String, trim: true },
+  direccion: { type: String, trim: true },
+  telefono:  { type: String, trim: true },
+  contacto:  { type: String, trim: true },
+}, { _id: false });
+
 const cotizacionSchema = new mongoose.Schema(
   {
     folio:        { type: String, required: true, trim: true, unique: true },
     tipo:         { type: String, enum: ["servicio", "renta", "venta"], required: true },
-    cliente:      { type: mongoose.Schema.Types.ObjectId, ref: "Cliente", required: true },
+    cliente:      { type: mongoose.Schema.Types.ObjectId, ref: "Cliente", default: null },
+    clienteOcasional: { type: clienteOcasionalSchema, default: null },
     montacargas:  { type: mongoose.Schema.Types.ObjectId, ref: "Montacargas" },
     fecha:        { type: Date, default: Date.now },
     lugar:        { type: String, trim: true, default: "Zapopán, Jal" },
