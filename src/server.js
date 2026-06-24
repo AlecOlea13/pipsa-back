@@ -23,6 +23,7 @@ import gastoRoutes from "./routes/gasto.routes.js";
 import gastoNoFiscalRoutes from "./routes/gastoNoFiscal.routes.js";
 import cxcRoutes from "./routes/cxc.routes.js";
 import proveedorRoutes from "./routes/proveedor.routes.js";
+import portalRoutes from "./routes/portal.routes.js";
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 dns.setDefaultResultOrder('ipv4first');
@@ -60,6 +61,7 @@ app.use("/api/gastos", gastoRoutes);
 app.use("/api/gastos-no-fiscales", gastoNoFiscalRoutes);
 app.use("/api/cxc", cxcRoutes);
 app.use("/api/proveedores", proveedorRoutes);
+app.use("/api/portales", portalRoutes);
 
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) console.error('❌ Falta MONGO_URI en el .env');
