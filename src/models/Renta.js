@@ -1,5 +1,14 @@
 import mongoose from "mongoose";
 
+const renovacionSchema = new mongoose.Schema({
+  fechaFinAnterior:   { type: Date, default: null },
+  precioMensualAnterior: { type: Number, default: 0 },
+  fechaFinNueva:      { type: Date, required: true },
+  precioMensualNuevo: { type: Number, required: true },
+  fechaRenovacion:    { type: Date, default: Date.now },
+  notas:              { type: String, trim: true, default: "" },
+}, { _id: true });
+
 const rentaSchema = new mongoose.Schema(
   {
     cliente:      { type: mongoose.Schema.Types.ObjectId, ref: "Cliente", required: true },
@@ -13,6 +22,7 @@ const rentaSchema = new mongoose.Schema(
     deposito:     { type: Number, default: 0 },
     estatus:      { type: String, enum: ["activa", "vencida", "terminada"], default: "activa" },
     contratoPDF:  { type: String, default: null },
+    renovaciones: { type: [renovacionSchema], default: [] },
   },
   { timestamps: true }
 );
