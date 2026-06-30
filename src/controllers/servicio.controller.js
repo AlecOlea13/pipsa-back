@@ -3,7 +3,6 @@ import Montacargas from "../models/Montacargas.js";
 import OrdenRefaccion from "../models/OrdenRefaccion.js";
 import TipoServicio from "../models/TipoServicio.js";
 import CatalogoEquipo from "../models/CatalogoEquipo.js";
-import User from "../models/User.js";
 import { enviarEmailCierreServicio } from "../utils/mailer.js";
 
 async function generarFolioServicio() {
@@ -214,28 +213,14 @@ export async function cerrarServicio(req, res) {
       estatus: estatusMonta || "disponible",
     });
 
-    // ── Enviar email a developer y gerencia ──
+    // ── Enviar email a la lista fija de destinatarios ──
     try {
-      const destinatarios = await User.find({
-        rol: { $in: ["developer", "gerencia"] },
-        activo: true,
-      }).select("nombre username");
-
-      // Buscar emails en asesores por nombre
-      const { default: Asesor } = await import("../models/Asesor.js");
-      const asesores = await Asesor.find({ activo: true }).select("nombre email");
-
-      const emails = [];
-      for (const u of destinatarios) {
-        const asesor = asesores.find(a =>
-          a.nombre.toLowerCase().includes(u.nombre.split(" ")[0].toLowerCase())
-        );
-        if (asesor?.email) emails.push({ nombre: u.nombre, email: asesor.email });
-      }
-
-      if (emails.length > 0) {
-        await enviarEmailCierreServicio(emails, servicio);
-      }
+      const destinatarios = [
+        { nombre: "Richard",   email: "richard@pipsamontacargas.com" },
+        { nombre: "Juan",      email: "juan@pipsamontacargas.com" },
+        { nombre: "Alejandro", email: "alejandropipsa@hotmail.com" },
+      ];
+      await enviarEmailCierreServicio(destinatarios, servicio);
     } catch (emailErr) {
       console.error("Error enviando email de cierre:", emailErr.message);
     }

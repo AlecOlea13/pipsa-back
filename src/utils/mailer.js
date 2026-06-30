@@ -45,6 +45,15 @@ export async function enviarEmailCierreServicio(destinatarios, servicio) {
   const tipo    = servicio.tipoServicio;
   const orden   = servicio.ordenRefaccion;
 
+  // ── Tiempo empleado en el servicio ──
+  let tiempoTexto = null;
+  if (servicio.horaInicio && servicio.horaFin) {
+    const minutos = Math.round((new Date(servicio.horaFin).getTime() - new Date(servicio.horaInicio).getTime()) / 60000);
+    const horas = Math.floor(minutos / 60);
+    const mins  = minutos % 60;
+    tiempoTexto = horas > 0 ? `${horas}h ${mins}min` : `${mins} min`;
+  }
+
   const refaccionesHtml = orden?.items?.filter(i => i.cantidadSurtida > 0).map(i =>
     `<tr>
       <td style="padding:6px 12px;border-bottom:1px solid #2a2d3a;">${i.cantidadSurtida} ${i.refaccion?.unidad ?? ""}</td>
@@ -75,6 +84,11 @@ export async function enviarEmailCierreServicio(destinatarios, servicio) {
             <p style="margin:0 0 4px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Tipo de servicio</p>
             <p style="margin:0;font-size:15px;font-weight:600;color:#fff;">${tipo?.nombre ?? "Sin tipo"}</p>
           </div>
+          ${tiempoTexto ? `
+          <div style="flex:1;background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;">
+            <p style="margin:0 0 4px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">⏱️ Tiempo empleado</p>
+            <p style="margin:0;font-size:15px;font-weight:700;color:#22c55e;">${tiempoTexto}</p>
+          </div>` : ""}
         </div>
         <table style="width:100%;border-collapse:collapse;margin-bottom:20px;background:#1a1d27;border-radius:8px;overflow:hidden;border:1px solid #2a2d3a;">
           <thead>
