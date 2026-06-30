@@ -1,5 +1,12 @@
 import Cotizacion from "../models/Cotizacion.js";
 
+const PREFIJO_POR_TIPO = {
+  servicio:    "SRV",
+  renta:       "REN",
+  venta:       "VTA",
+  refacciones: "REF",
+};
+
 export async function getCotizaciones(req, res) {
   try {
     const cotizaciones = await Cotizacion.find()
@@ -43,9 +50,10 @@ export async function createCotizacion(req, res) {
     }
 
     if (!body.folio) {
-      const anio = new Date().getFullYear();
-      const ultima = await Cotizacion.findOne(
-        { folio: { $regex: `^COT-${anio}-` } },
+      const anio    = new Date().getFullYear();
+      const prefijo = PREFIJO_POR_TIPO[body.tipo] ?? "COT";
+      const ultima  = await Cotizacion.findOne(
+        { folio: { $regex: `^${prefijo}-${anio}-` } },
         { folio: 1 },
         { sort: { createdAt: -1 } }
       );
@@ -55,7 +63,7 @@ export async function createCotizacion(req, res) {
         const num    = parseInt(partes[partes.length - 1]);
         if (!isNaN(num)) siguiente = num + 1;
       }
-      body.folio = `COT-${anio}-${String(siguiente).padStart(3, "0")}`;
+      body.folio = `${prefijo}-${anio}-${String(siguiente).padStart(3, "0")}`;
     }
 
     const cotizacion = new Cotizacion(body);

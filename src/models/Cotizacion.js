@@ -30,7 +30,7 @@ const clienteOcasionalSchema = new mongoose.Schema({
 const cotizacionSchema = new mongoose.Schema(
   {
     folio:        { type: String, required: true, trim: true, unique: true },
-    tipo:         { type: String, enum: ["servicio", "renta", "venta"], required: true },
+    tipo:         { type: String, enum: ["servicio", "renta", "venta", "refacciones"], required: true },
     cliente:      { type: mongoose.Schema.Types.ObjectId, ref: "Cliente", default: null },
     clienteOcasional: { type: clienteOcasionalSchema, default: null },
     montacargas:  { type: mongoose.Schema.Types.ObjectId, ref: "Montacargas" },
