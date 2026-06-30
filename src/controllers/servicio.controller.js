@@ -22,7 +22,13 @@ async function generarFolioOrden() {
 
 export async function getServicios(req, res) {
   try {
-    const servicios = await Servicio.find()
+    const filtro = {};
+    // Si el usuario es técnico, solo ve los servicios que tiene asignados
+    if (req.userRol === "tecnico") {
+      filtro.tecnicoAsignado = req.userId;
+    }
+
+    const servicios = await Servicio.find(filtro)
       .populate("montacargas", "numeroEconomico marca modelo serie")
       .populate("cliente", "nombre direccion telefono")
       .populate("tipoServicio", "nombre")
@@ -50,6 +56,12 @@ export async function getServicio(req, res) {
         populate: { path: "items.refaccion", select: "nombre numeroParte unidad precio" },
       });
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
+
+    // Un técnico solo puede ver el detalle de SUS servicios
+    if (req.userRol === "tecnico" && String(servicio.tecnicoAsignado?._id) !== String(req.userId)) {
+      return res.status(403).json({ message: "No tienes permiso para ver este servicio" });
+    }
+
     res.json(servicio);
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
@@ -110,8 +122,45 @@ export async function createServicio(req, res) {
 
 export async function updateServicio(req, res) {
   try {
-    const servicio = await Servicio.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const servicio = await Servicio.findById(req.params.id);
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
+
+    // Un técnico solo puede modificar SUS servicios
+    if (req.userRol === "tecnico" && String(servicio.tecnicoAsignado) !== String(req.userId)) {
+      return res.status(403).json({ message: "No tienes permiso para modificar este servicio" });
+    }
+
+    const actualizado = await Servicio.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(actualizado);
+  } catch (e) {
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+}
+
+export async function iniciarServicio(req, res) {
+  try {
+    const servicio = await Servicio.findById(req.params.id);
+    if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
+
+    // Solo el técnico asignado, gerencia o developer pueden iniciar
+    const puedeIniciar =
+      ["developer", "gerencia"].includes(req.userRol) ||
+      (req.userRol === "tecnico" && String(servicio.tecnicoAsignado) === String(req.userId));
+    if (!puedeIniciar) return res.status(403).json({ message: "No tienes permiso para iniciar este servicio" });
+
+    if (servicio.horaInicio) return res.status(400).json({ message: "Este servicio ya fue iniciado" });
+
+    servicio.horaInicio = new Date();
+    servicio.estatus = "en_proceso";
+    await servicio.save();
+
+    await servicio.populate([
+      { path: "montacargas", select: "numeroEconomico marca modelo serie" },
+      { path: "cliente", select: "nombre direccion telefono" },
+      { path: "tipoServicio", select: "nombre" },
+      { path: "tecnicoAsignado", select: "nombre" },
+    ]);
+
     res.json(servicio);
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
@@ -120,6 +169,15 @@ export async function updateServicio(req, res) {
 
 export async function cerrarServicio(req, res) {
   try {
+    const servicioActual = await Servicio.findById(req.params.id);
+    if (!servicioActual) return res.status(404).json({ message: "Servicio no encontrado" });
+
+    // Solo el técnico asignado, gerencia o developer pueden cerrar
+    const puedeCerrar =
+      ["developer", "gerencia"].includes(req.userRol) ||
+      (req.userRol === "tecnico" && String(servicioActual.tecnicoAsignado) === String(req.userId));
+    if (!puedeCerrar) return res.status(403).json({ message: "No tienes permiso para cerrar este servicio" });
+
     const {
       horometro, proximoServicio, estatusMonta,
       notasCierre, fotoHojaFirmada, fotoEquipoFinal,
@@ -134,6 +192,7 @@ export async function cerrarServicio(req, res) {
         notasCierre,
         fotoHojaFirmada: fotoHojaFirmada ?? null,
         fotoEquipoFinal: fotoEquipoFinal ?? null,
+        horaFin: new Date(),
       },
       { new: true }
     )

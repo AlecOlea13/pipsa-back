@@ -17,6 +17,9 @@ const servicioSchema = new mongoose.Schema(
     proximoServicio:  { type: Date, default: null },
     ordenRefaccion:   { type: mongoose.Schema.Types.ObjectId, ref: "OrdenRefaccion", default: null },
     notasCierre:      { type: String, trim: true, default: null },
+    // ── Cronómetro del servicio ──
+    horaInicio:       { type: Date, default: null },
+    horaFin:          { type: Date, default: null },
     // ── Fotos al cerrar ──
     fotoHojaFirmada:  { type: String, default: null }, // URL Cloudinary
     fotoEquipoFinal:  { type: String, default: null }, // URL Cloudinary
