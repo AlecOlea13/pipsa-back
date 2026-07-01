@@ -388,11 +388,14 @@ export async function enviarEmailCobro({ cliente, folio, total, fechaPago, compl
   });
 }
 export async function enviarEmailPausaServicio(destinatarios, servicio, razon) {
-  const fecha = new Date().toLocaleDateString("es-MX", {
+  const ahora = new Date();
+  const fecha = ahora.toLocaleDateString("es-MX", {
     day: "2-digit", month: "long", year: "numeric",
+    timeZone: "America/Mexico_City",
   });
-  const hora = new Date().toLocaleTimeString("es-MX", {
+  const hora = ahora.toLocaleTimeString("es-MX", {
     hour: "2-digit", minute: "2-digit",
+    timeZone: "America/Mexico_City",
   });
 
   const monta   = servicio.montacargas;
