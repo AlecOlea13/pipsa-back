@@ -22,18 +22,13 @@ async function generarFolioOrden() {
 export async function getServicios(req, res) {
   try {
     const filtro = {};
-    if (req.userRol === "tecnico") {
-      filtro.tecnicoAsignado = req.userId;
-    }
+    if (req.userRol === "tecnico") filtro.tecnicoAsignado = req.userId;
     const servicios = await Servicio.find(filtro)
       .populate("montacargas", "numeroEconomico marca modelo serie")
       .populate("cliente", "nombre direccion telefono")
       .populate("tipoServicio", "nombre")
       .populate("tecnicoAsignado", "nombre")
-      .populate({
-        path: "ordenRefaccion",
-        populate: { path: "items.refaccion", select: "nombre numeroParte unidad precio" },
-      })
+      .populate({ path: "ordenRefaccion", populate: { path: "items.refaccion", select: "nombre numeroParte unidad precio" } })
       .sort({ createdAt: -1 });
     res.json(servicios);
   } catch (e) {
@@ -48,14 +43,10 @@ export async function getServicio(req, res) {
       .populate("cliente", "nombre direccion telefono")
       .populate("tipoServicio", "nombre")
       .populate("tecnicoAsignado", "nombre")
-      .populate({
-        path: "ordenRefaccion",
-        populate: { path: "items.refaccion", select: "nombre numeroParte unidad precio" },
-      });
+      .populate({ path: "ordenRefaccion", populate: { path: "items.refaccion", select: "nombre numeroParte unidad precio" } });
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
-    if (req.userRol === "tecnico" && String(servicio.tecnicoAsignado?._id) !== String(req.userId)) {
+    if (req.userRol === "tecnico" && String(servicio.tecnicoAsignado?._id) !== String(req.userId))
       return res.status(403).json({ message: "No tienes permiso para ver este servicio" });
-    }
     res.json(servicio);
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
@@ -72,14 +63,11 @@ export async function createServicio(req, res) {
     const folio = await generarFolioServicio();
     const servicio = new Servicio({ ...body, folio });
     await servicio.save();
-
     await Montacargas.findByIdAndUpdate(body.montacargas, { estatus: "mantenimiento" });
 
     let ordenId = null;
     if (body.tipoServicio) {
-      const catalogo = await CatalogoEquipo.findOne({ montacargas: body.montacargas })
-        .populate("refacciones.refaccion");
-
+      const catalogo = await CatalogoEquipo.findOne({ montacargas: body.montacargas }).populate("refacciones.refaccion");
       let refacciones = [];
       if (catalogo && catalogo.refacciones.length > 0) {
         refacciones = catalogo.refacciones;
@@ -87,7 +75,6 @@ export async function createServicio(req, res) {
         const tipo = await TipoServicio.findById(body.tipoServicio);
         refacciones = tipo?.refacciones ?? [];
       }
-
       if (refacciones.length > 0) {
         const folioOrden = await generarFolioOrden();
         const orden = await OrdenRefaccion.create({
@@ -106,7 +93,6 @@ export async function createServicio(req, res) {
         await servicio.updateOne({ ordenRefaccion: ordenId });
       }
     }
-
     res.status(201).json({ ...servicio.toObject(), folio, ordenRefaccion: ordenId });
   } catch (e) {
     console.error(e);
@@ -118,9 +104,8 @@ export async function updateServicio(req, res) {
   try {
     const servicio = await Servicio.findById(req.params.id);
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
-    if (req.userRol === "tecnico" && String(servicio.tecnicoAsignado) !== String(req.userId)) {
+    if (req.userRol === "tecnico" && String(servicio.tecnicoAsignado) !== String(req.userId))
       return res.status(403).json({ message: "No tienes permiso para modificar este servicio" });
-    }
     const actualizado = await Servicio.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json(actualizado);
   } catch (e) {
@@ -132,24 +117,20 @@ export async function iniciarServicio(req, res) {
   try {
     const servicio = await Servicio.findById(req.params.id);
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
-
     const puedeIniciar =
       ["developer", "gerencia"].includes(req.userRol) ||
       (req.userRol === "tecnico" && String(servicio.tecnicoAsignado) === String(req.userId));
     if (!puedeIniciar) return res.status(403).json({ message: "No tienes permiso para iniciar este servicio" });
     if (servicio.horaInicio) return res.status(400).json({ message: "Este servicio ya fue iniciado" });
-
     servicio.horaInicio = new Date();
     servicio.estatus = "en_proceso";
     await servicio.save();
-
     await servicio.populate([
       { path: "montacargas", select: "numeroEconomico marca modelo serie" },
       { path: "cliente", select: "nombre direccion telefono" },
       { path: "tipoServicio", select: "nombre" },
       { path: "tecnicoAsignado", select: "nombre" },
     ]);
-
     res.json(servicio);
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
@@ -160,28 +141,22 @@ export async function pausarServicio(req, res) {
   try {
     const servicio = await Servicio.findById(req.params.id);
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
-
     const puedePausar =
       ["developer", "gerencia"].includes(req.userRol) ||
       (req.userRol === "tecnico" && String(servicio.tecnicoAsignado) === String(req.userId));
     if (!puedePausar) return res.status(403).json({ message: "No tienes permiso para pausar este servicio" });
     if (servicio.estatus !== "en_proceso") return res.status(400).json({ message: "Solo se puede pausar un servicio en proceso" });
-
     const { razon } = req.body;
     if (!razon?.trim()) return res.status(400).json({ message: "La razón de pausa es obligatoria" });
-
     servicio.pausas.push({ razon: razon.trim(), horaInicio: new Date() });
     servicio.estatus = "pausado";
     await servicio.save();
-
     await servicio.populate([
       { path: "montacargas", select: "numeroEconomico marca modelo serie" },
       { path: "cliente", select: "nombre direccion telefono" },
       { path: "tipoServicio", select: "nombre" },
       { path: "tecnicoAsignado", select: "nombre" },
     ]);
-
-    // ── Notificar por email ──
     try {
       const destinatarios = [
         { nombre: "Richard",   email: "richard@pipsamontacargas.com" },
@@ -192,7 +167,6 @@ export async function pausarServicio(req, res) {
     } catch (emailErr) {
       console.error("Error enviando email de pausa:", emailErr.message);
     }
-
     res.json(servicio);
   } catch (e) {
     console.error(e);
@@ -204,27 +178,21 @@ export async function reanudarServicio(req, res) {
   try {
     const servicio = await Servicio.findById(req.params.id);
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
-
     const puedeReanudar =
       ["developer", "gerencia"].includes(req.userRol) ||
       (req.userRol === "tecnico" && String(servicio.tecnicoAsignado) === String(req.userId));
     if (!puedeReanudar) return res.status(403).json({ message: "No tienes permiso para reanudar este servicio" });
     if (servicio.estatus !== "pausado") return res.status(400).json({ message: "Solo se puede reanudar un servicio pausado" });
-
-    // Cerrar la pausa activa
     const pausaActiva = servicio.pausas.find(p => !p.horaFin);
     if (pausaActiva) pausaActiva.horaFin = new Date();
-
     servicio.estatus = "en_proceso";
     await servicio.save();
-
     await servicio.populate([
       { path: "montacargas", select: "numeroEconomico marca modelo serie" },
       { path: "cliente", select: "nombre direccion telefono" },
       { path: "tipoServicio", select: "nombre" },
       { path: "tecnicoAsignado", select: "nombre" },
     ]);
-
     res.json(servicio);
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
@@ -235,7 +203,6 @@ export async function cerrarServicio(req, res) {
   try {
     const servicioActual = await Servicio.findById(req.params.id);
     if (!servicioActual) return res.status(404).json({ message: "Servicio no encontrado" });
-
     const puedeCerrar =
       ["developer", "gerencia"].includes(req.userRol) ||
       (req.userRol === "tecnico" && String(servicioActual.tecnicoAsignado) === String(req.userId));
@@ -243,7 +210,7 @@ export async function cerrarServicio(req, res) {
 
     const {
       horometro, proximoServicio, estatusMonta,
-      notasCierre, fotoHojaFirmada, fotoEquipoFinal,
+      notasCierre, fotoHojaFirmada, fotoEquipoFinal, fotoRefacciones,
     } = req.body;
 
     const servicio = await Servicio.findByIdAndUpdate(
@@ -253,8 +220,9 @@ export async function cerrarServicio(req, res) {
         horometroCierre: horometro,
         proximoServicio,
         notasCierre,
-        fotoHojaFirmada: fotoHojaFirmada ?? null,
-        fotoEquipoFinal: fotoEquipoFinal ?? null,
+        fotoHojaFirmada:  fotoHojaFirmada  ?? null,
+        fotoEquipoFinal:  fotoEquipoFinal  ?? null,
+        fotoRefacciones:  fotoRefacciones  ?? null,
         horaFin: new Date(),
       },
       { new: true }
@@ -263,10 +231,7 @@ export async function cerrarServicio(req, res) {
       .populate("cliente", "nombre direccion telefono")
       .populate("tipoServicio", "nombre")
       .populate("tecnicoAsignado", "nombre")
-      .populate({
-        path: "ordenRefaccion",
-        populate: { path: "items.refaccion", select: "nombre numeroParte unidad precio" },
-      });
+      .populate({ path: "ordenRefaccion", populate: { path: "items.refaccion", select: "nombre numeroParte unidad precio" } });
 
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
 

@@ -28,6 +28,7 @@ const servicioSchema = new mongoose.Schema(
     pausas:           { type: [pausaSchema], default: [] },
     fotoHojaFirmada:  { type: String, default: null },
     fotoEquipoFinal:  { type: String, default: null },
+    fotoRefacciones:  { type: String, default: null },
     fotos:            [{ type: String }],
   },
   { timestamps: true }
