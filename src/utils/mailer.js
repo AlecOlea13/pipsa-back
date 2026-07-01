@@ -387,3 +387,75 @@ export async function enviarEmailCobro({ cliente, folio, total, fechaPago, compl
     attachments,
   });
 }
+export async function enviarEmailPausaServicio(destinatarios, servicio, razon) {
+  const fecha = new Date().toLocaleDateString("es-MX", {
+    day: "2-digit", month: "long", year: "numeric",
+  });
+  const hora = new Date().toLocaleTimeString("es-MX", {
+    hour: "2-digit", minute: "2-digit",
+  });
+
+  const monta   = servicio.montacargas;
+  const cliente = servicio.cliente;
+  const tecnico = servicio.tecnicoAsignado;
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
+      <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #f59e0b;display:flex;align-items:center;gap:16px;">
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+             style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
+        <div>
+          <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">⏸️ Servicio Pausado</p>
+          <p style="margin:0;font-size:13px;color:#f59e0b;">Control Pipsa — Notificación automática</p>
+        </div>
+      </div>
+      <div style="padding:28px 32px;">
+        <p style="margin:0 0 20px;font-size:14px;color:#aab0c6;">
+          El siguiente servicio fue <strong style="color:#f59e0b;">pausado</strong> el <strong style="color:#fff;">${fecha}</strong> a las <strong style="color:#fff;">${hora}</strong>.
+        </p>
+        <div style="display:flex;gap:12px;margin-bottom:20px;">
+          <div style="flex:1;background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;">
+            <p style="margin:0 0 4px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Folio</p>
+            <p style="margin:0;font-size:20px;font-weight:700;color:#f59e0b;">${servicio.folio}</p>
+          </div>
+          <div style="flex:1;background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;">
+            <p style="margin:0 0 4px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Técnico</p>
+            <p style="margin:0;font-size:15px;font-weight:600;color:#fff;">${tecnico?.nombre ?? "Sin asignar"}</p>
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;background:#1a1d27;border-radius:8px;overflow:hidden;border:1px solid #2a2d3a;">
+          <thead>
+            <tr style="background:#222537;">
+              <th colspan="2" style="padding:10px 16px;text-align:left;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Datos del equipo y cliente</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="padding:8px 16px;color:#7a8099;font-size:13px;width:140px;">Equipo</td><td style="padding:8px 16px;color:#fff;font-size:13px;font-weight:600;">${monta?.numeroEconomico ?? "—"} — ${monta?.marca ?? ""} ${monta?.modelo ?? ""}</td></tr>
+            <tr style="background:#222537;"><td style="padding:8px 16px;color:#7a8099;font-size:13px;">Cliente</td><td style="padding:8px 16px;color:#fff;font-size:13px;">${cliente?.nombre ?? "Sin cliente"}</td></tr>
+          </tbody>
+        </table>
+        <div style="background:#1a1d27;border-radius:8px;padding:14px 18px;border:1.5px solid #f59e0b;margin-bottom:20px;">
+          <p style="margin:0 0 6px;font-size:11px;color:#f59e0b;text-transform:uppercase;letter-spacing:.06em;">⏸️ Razón de la pausa</p>
+          <p style="margin:0;font-size:14px;color:#fff;">${razon}</p>
+        </div>
+        <div style="background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;">
+          <p style="margin:0 0 6px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Problema original</p>
+          <p style="margin:0;font-size:14px;color:#fff;">${servicio.problema ?? "—"}</p>
+        </div>
+      </div>
+      <div style="background:#1a1d27;padding:16px 32px;text-align:center;border-top:1px solid #2a2d3a;">
+        <p style="margin:0;font-size:12px;color:#7a8099;">Control Pipsa — Sistema de Gestión de Flota</p>
+        <p style="margin:4px 0 0;font-size:11px;color:#4a5068;">Este es un mensaje automático, no responder.</p>
+      </div>
+    </div>
+  `;
+
+  for (const dest of destinatarios) {
+    await transporter.sendMail({
+      from: `"Control Pipsa" <${process.env.MAIL_USER}>`,
+      to: dest.email,
+      subject: `⏸️ Servicio pausado — ${servicio.folio} | ${monta?.numeroEconomico ?? ""} ${monta?.marca ?? ""}`,
+      html,
+    });
+  }
+}

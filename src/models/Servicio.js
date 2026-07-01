@@ -1,5 +1,11 @@
 import mongoose from "mongoose";
 
+const pausaSchema = new mongoose.Schema({
+  razon:      { type: String, trim: true, required: true },
+  horaInicio: { type: Date, required: true },
+  horaFin:    { type: Date, default: null },
+}, { _id: true });
+
 const servicioSchema = new mongoose.Schema(
   {
     folio:            { type: String, required: true, unique: true, trim: true },
@@ -9,7 +15,7 @@ const servicioSchema = new mongoose.Schema(
     tecnicoAsignado:  { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     fechaReporte:     { type: Date, default: Date.now },
     problema:         { type: String, trim: true },
-    estatus:          { type: String, enum: ["abierto", "en_proceso", "cerrado"], default: "abierto" },
+    estatus:          { type: String, enum: ["abierto", "en_proceso", "pausado", "cerrado"], default: "abierto" },
     costoRefacciones: { type: Number, default: 0 },
     costoManoObra:    { type: Number, default: 0 },
     horometro:        { type: Number, default: 0 },
@@ -17,12 +23,11 @@ const servicioSchema = new mongoose.Schema(
     proximoServicio:  { type: Date, default: null },
     ordenRefaccion:   { type: mongoose.Schema.Types.ObjectId, ref: "OrdenRefaccion", default: null },
     notasCierre:      { type: String, trim: true, default: null },
-    // ── Cronómetro del servicio ──
     horaInicio:       { type: Date, default: null },
     horaFin:          { type: Date, default: null },
-    // ── Fotos al cerrar ──
-    fotoHojaFirmada:  { type: String, default: null }, // URL Cloudinary
-    fotoEquipoFinal:  { type: String, default: null }, // URL Cloudinary
+    pausas:           { type: [pausaSchema], default: [] },
+    fotoHojaFirmada:  { type: String, default: null },
+    fotoEquipoFinal:  { type: String, default: null },
     fotos:            [{ type: String }],
   },
   { timestamps: true }
