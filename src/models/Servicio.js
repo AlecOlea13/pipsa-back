@@ -6,6 +6,11 @@ const pausaSchema = new mongoose.Schema({
   horaFin:    { type: Date, default: null },
 }, { _id: true });
 
+const ubicacionSchema = new mongoose.Schema({
+  lat: { type: Number, required: true },
+  lng: { type: Number, required: true },
+}, { _id: false });
+
 const servicioSchema = new mongoose.Schema(
   {
     folio:            { type: String, required: true, unique: true, trim: true },
@@ -30,6 +35,8 @@ const servicioSchema = new mongoose.Schema(
     fotoEquipoFinal:  { type: String, default: null },
     fotoRefacciones:  { type: String, default: null },
     fotos:            [{ type: String }],
+    ubicacionInicio:  { type: ubicacionSchema, default: null },
+    ubicacionCierre:  { type: ubicacionSchema, default: null },
   },
   { timestamps: true }
 );

@@ -136,6 +136,26 @@ export async function enviarEmailCierreServicio(destinatarios, servicio) {
             ${servicio.fotoRefacciones ? `<div style="flex:1;min-width:140px;text-align:center;"><p style="margin:0 0 6px;font-size:11px;color:#7a8099;">🔩 Refacciones utilizadas</p><img src="${servicio.fotoRefacciones}" style="width:100%;max-width:200px;border-radius:8px;border:1px solid #2a2d3a;" /></div>` : ""}
           </div>
         </div>` : ""}
+        ${servicio.ubicacionInicio || servicio.ubicacionCierre ? `
+        <div style="margin-bottom:20px;">
+          <p style="margin:0 0 10px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">📍 Ubicaciones registradas</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            ${servicio.ubicacionInicio ? `
+            <a href="https://www.google.com/maps?q=${servicio.ubicacionInicio.lat},${servicio.ubicacionInicio.lng}" target="_blank"
+              style="flex:1;min-width:160px;display:block;background:#1a1d27;border-radius:8px;padding:12px 16px;border:1px solid #2a2d3a;text-decoration:none;">
+              <p style="margin:0 0 4px;font-size:11px;color:#7a8099;">🟢 Ubicación de inicio</p>
+              <p style="margin:0;font-size:13px;color:#4ade80;font-weight:600;">Ver en Google Maps →</p>
+              <p style="margin:4px 0 0;font-size:10px;color:#4a5068;">${servicio.ubicacionInicio.lat.toFixed(5)}, ${servicio.ubicacionInicio.lng.toFixed(5)}</p>
+            </a>` : ""}
+            ${servicio.ubicacionCierre ? `
+            <a href="https://www.google.com/maps?q=${servicio.ubicacionCierre.lat},${servicio.ubicacionCierre.lng}" target="_blank"
+              style="flex:1;min-width:160px;display:block;background:#1a1d27;border-radius:8px;padding:12px 16px;border:1px solid #2a2d3a;text-decoration:none;">
+              <p style="margin:0 0 4px;font-size:11px;color:#7a8099;">🔴 Ubicación de cierre</p>
+              <p style="margin:0;font-size:13px;color:#f87171;font-weight:600;">Ver en Google Maps →</p>
+              <p style="margin:4px 0 0;font-size:10px;color:#4a5068;">${servicio.ubicacionCierre.lat.toFixed(5)}, ${servicio.ubicacionCierre.lng.toFixed(5)}</p>
+            </a>` : ""}
+          </div>
+        </div>` : ""}
       </div>
       <div style="background:#1a1d27;padding:16px 32px;text-align:center;border-top:1px solid #2a2d3a;">
         <p style="margin:0;font-size:12px;color:#7a8099;">Control Pipsa — Sistema de Gestión de Flota</p>

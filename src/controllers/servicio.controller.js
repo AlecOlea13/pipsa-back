@@ -60,7 +60,7 @@ export async function createServicio(req, res) {
     if (!body.tecnicoAsignado) delete body.tecnicoAsignado;
     if (!body.cliente)         delete body.cliente;
 
-    const folio = await generarFolioServicio();
+    const folio    = await generarFolioServicio();
     const servicio = new Servicio({ ...body, folio });
     await servicio.save();
     await Montacargas.findByIdAndUpdate(body.montacargas, { estatus: "mantenimiento" });
@@ -122,8 +122,18 @@ export async function iniciarServicio(req, res) {
       (req.userRol === "tecnico" && String(servicio.tecnicoAsignado) === String(req.userId));
     if (!puedeIniciar) return res.status(403).json({ message: "No tienes permiso para iniciar este servicio" });
     if (servicio.horaInicio) return res.status(400).json({ message: "Este servicio ya fue iniciado" });
+
     servicio.horaInicio = new Date();
-    servicio.estatus = "en_proceso";
+    servicio.estatus    = "en_proceso";
+
+    // Guardar ubicación de inicio si viene en el body
+    if (req.body.ubicacion?.lat && req.body.ubicacion?.lng) {
+      servicio.ubicacionInicio = {
+        lat: req.body.ubicacion.lat,
+        lng: req.body.ubicacion.lng,
+      };
+    }
+
     await servicio.save();
     await servicio.populate([
       { path: "montacargas", select: "numeroEconomico marca modelo serie" },
@@ -148,6 +158,7 @@ export async function pausarServicio(req, res) {
     if (servicio.estatus !== "en_proceso") return res.status(400).json({ message: "Solo se puede pausar un servicio en proceso" });
     const { razon } = req.body;
     if (!razon?.trim()) return res.status(400).json({ message: "La razón de pausa es obligatoria" });
+
     servicio.pausas.push({ razon: razon.trim(), horaInicio: new Date() });
     servicio.estatus = "pausado";
     await servicio.save();
@@ -183,6 +194,7 @@ export async function reanudarServicio(req, res) {
       (req.userRol === "tecnico" && String(servicio.tecnicoAsignado) === String(req.userId));
     if (!puedeReanudar) return res.status(403).json({ message: "No tienes permiso para reanudar este servicio" });
     if (servicio.estatus !== "pausado") return res.status(400).json({ message: "Solo se puede reanudar un servicio pausado" });
+
     const pausaActiva = servicio.pausas.find(p => !p.horaFin);
     if (pausaActiva) pausaActiva.horaFin = new Date();
     servicio.estatus = "en_proceso";
@@ -211,22 +223,25 @@ export async function cerrarServicio(req, res) {
     const {
       horometro, proximoServicio, estatusMonta,
       notasCierre, fotoHojaFirmada, fotoEquipoFinal, fotoRefacciones,
+      ubicacion,
     } = req.body;
 
-    const servicio = await Servicio.findByIdAndUpdate(
-      req.params.id,
-      {
-        estatus: "cerrado",
-        horometroCierre: horometro,
-        proximoServicio,
-        notasCierre,
-        fotoHojaFirmada:  fotoHojaFirmada  ?? null,
-        fotoEquipoFinal:  fotoEquipoFinal  ?? null,
-        fotoRefacciones:  fotoRefacciones  ?? null,
-        horaFin: new Date(),
-      },
-      { new: true }
-    )
+    const updateData = {
+      estatus: "cerrado",
+      horometroCierre: horometro,
+      proximoServicio,
+      notasCierre,
+      fotoHojaFirmada:  fotoHojaFirmada  ?? null,
+      fotoEquipoFinal:  fotoEquipoFinal  ?? null,
+      fotoRefacciones:  fotoRefacciones  ?? null,
+      horaFin: new Date(),
+    };
+
+    if (ubicacion?.lat && ubicacion?.lng) {
+      updateData.ubicacionCierre = { lat: ubicacion.lat, lng: ubicacion.lng };
+    }
+
+    const servicio = await Servicio.findByIdAndUpdate(req.params.id, updateData, { new: true })
       .populate("montacargas", "numeroEconomico marca modelo serie")
       .populate("cliente", "nombre direccion telefono")
       .populate("tipoServicio", "nombre")
