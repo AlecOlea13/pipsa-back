@@ -12,7 +12,7 @@ export async function getUsers(req, res) {
 
 export async function createUser(req, res) {
   try {
-    const { username, password, nombre, rol } = req.body;
+    const { username, password, nombre, rol, permisos } = req.body;
     if (!username || !password || !nombre || !rol)
       return res.status(400).json({ message: "Todos los campos son requeridos" });
 
@@ -29,12 +29,13 @@ export async function createUser(req, res) {
       nombre,
       rol,
       activo: true,
+      permisos: permisos ?? [],
     });
 
     const obj = user.toObject();
     delete obj.password;
     res.status(201).json(obj);
-  }  catch (e) {
+  } catch (e) {
     console.error("ERROR createUser:", e.message, e.stack);
     res.status(500).json({ message: "Error en el servidor", detail: e.message });
   }
@@ -42,11 +43,12 @@ export async function createUser(req, res) {
 
 export async function updateUser(req, res) {
   try {
-    const { username, nombre, rol, activo, password } = req.body;
+    const { username, nombre, rol, activo, password, permisos } = req.body;
     const updates = { nombre, rol, activo };
 
     if (username) updates.username = username.toLowerCase();
     if (password) updates.password = await bcrypt.hash(password, 12);
+    if (permisos !== undefined) updates.permisos = permisos;
 
     const user = await User.findByIdAndUpdate(req.params.id, updates, { new: true }).select("-password");
     if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
