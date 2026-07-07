@@ -3,12 +3,13 @@ import { getRefacciones, createRefaccion, updateRefaccion, deleteRefaccion, ajus
 import { auth, requireRol } from "../middleware/auth.js";
 
 const router = Router();
-const rw = requireRol("developer", "gerencia");
+const rw       = requireRol("developer", "gerencia");
+const rwAlmacen = requireRol("developer", "gerencia", "almacen");
 
-router.get("/",              auth, getRefacciones);
-router.post("/",             auth, rw, createRefaccion);
-router.put("/:id",           auth, rw, updateRefaccion);
-router.delete("/:id",        auth, rw, deleteRefaccion);
-router.post("/:id/stock",    auth, rw, ajustarStock);
+router.get("/",           auth, getRefacciones);
+router.post("/",          auth, rw, createRefaccion);
+router.put("/:id",        auth, rw, updateRefaccion);
+router.delete("/:id",     auth, rw, deleteRefaccion);
+router.post("/:id/stock", auth, rwAlmacen, ajustarStock);
 
 export default router;

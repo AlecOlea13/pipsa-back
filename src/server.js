@@ -25,6 +25,7 @@ import cxcRoutes from "./routes/cxc.routes.js";
 import proveedorRoutes from "./routes/proveedor.routes.js";
 import portalRoutes from "./routes/portal.routes.js";
 import vehiculoRoutes from "./routes/vehiculo.routes.js";
+import valeRoutes from "./routes/vale.routes.js";
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 dns.setDefaultResultOrder('ipv4first');
@@ -64,6 +65,8 @@ app.use("/api/cxc", cxcRoutes);
 app.use("/api/proveedores", proveedorRoutes);
 app.use("/api/portales", portalRoutes);
 app.use("/api/vehiculos", vehiculoRoutes);
+app.use("/api/vales-salida", valeRoutes);
+
 
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) console.error('❌ Falta MONGO_URI en el .env');
