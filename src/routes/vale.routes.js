@@ -2,7 +2,6 @@ import { Router } from "express";
 import { auth } from "../middleware/auth.js";
 import ValeSalida from "../models/ValeSalida.js";
 import Refaccion from "../models/Refaccion.js";
-import Counter from "../models/Counter.js";
 
 const router = Router();
 
@@ -26,17 +25,13 @@ router.post("/", auth, async (req, res) => {
     const count = await ValeSalida.countDocuments();
     const folio = `VAL-${String(count + 1).padStart(3, "0")}`;
 
-    // Descontar stock de cada item
-    for (const item of items) {
-      const ref = await Refaccion.findById(item.refaccionId);
-      if (!ref) continue;
-      ref.stock = Math.max(0, ref.stock - item.cantidad);
-      await ref.save();
-    }
-
-    // Obtener info de refacciones para guardar en el vale
+    // Obtener info y descontar stock
     const itemsConInfo = await Promise.all(items.map(async (item) => {
       const ref = await Refaccion.findById(item.refaccionId);
+      if (ref) {
+        ref.stock = Math.max(0, ref.stock - item.cantidad);
+        await ref.save();
+      }
       return {
         refaccion:   item.refaccionId,
         nombre:      ref?.nombre ?? item.nombre,
