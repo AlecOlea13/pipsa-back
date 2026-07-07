@@ -43,7 +43,12 @@ const cotizacionSchema = new mongoose.Schema(
     iva:          { type: Number, default: 0 },
     total:        { type: Number, default: 0 },
     condiciones:  { type: String, trim: true },
-    estatus:      { type: String, enum: ["borrador", "enviada", "aceptada", "rechazada"], default: "borrador" },
+    estatus: {
+        type: String,
+        enum: ["activa", "facturada", "cancelada"],
+        default: "activa",
+      },
+    numeroFactura: { type: String, trim: true, default: null },
     notas:        { type: String, trim: true },
     asesor:       { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", default: null },
     equipoMarca:  { type: String, trim: true, default: null },
