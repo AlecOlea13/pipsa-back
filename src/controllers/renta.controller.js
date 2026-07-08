@@ -45,11 +45,20 @@ export async function createRenta(req, res) {
 
 export async function updateRenta(req, res) {
   try {
-    const renta = await Renta.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const body = { ...req.body };
+
+    // Si vienen populados como objetos, extraer solo el _id
+    if (body.cliente?._id) body.cliente = body.cliente._id;
+    if (body.montacargas?._id) body.montacargas = body.montacargas._id;
+    if (body.asesor?._id) body.asesor = body.asesor._id;
+    if (!body.asesor) delete body.asesor;
+
+    const renta = await Renta.findByIdAndUpdate(req.params.id, body, { new: true });
     if (!renta) return res.status(404).json({ message: "Renta no encontrada" });
     res.json(renta);
   } catch (e) {
-    res.status(500).json({ message: "Error en el servidor" });
+    console.error("updateRenta error:", e.message);
+    res.status(500).json({ message: "Error en el servidor", detail: e.message });
   }
 }
 
