@@ -77,7 +77,6 @@ export async function cobrarCxc(req, res) {
 export async function cobrarPorRep(req, res) {
   try {
     const { pagos, fechaPago, complementoPago } = req.body;
-    // pagos = [{ uuid, montoPagado }]
     if (!pagos?.length) return res.status(400).json({ message: "Sin pagos para procesar" });
 
     const resultados = [];
@@ -116,6 +115,55 @@ export async function cobrarPorRep(req, res) {
         uuid: pago.uuid,
         encontrada: true,
         yaEstaba: false,
+        folioFactura: cxc.folioFactura,
+        nombreReceptor: cxc.nombreReceptor,
+        total: cxc.total,
+      });
+    }
+
+    res.json({ resultados });
+  } catch (e) {
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+}
+
+export async function cobrarMultiple(req, res) {
+  try {
+    const { ids, fechaPago, complementoPago, comentarios } = req.body;
+    if (!ids?.length) return res.status(400).json({ message: "Sin IDs para procesar" });
+
+    const fecha = fechaPago ? new Date(fechaPago) : new Date();
+    const resultados = [];
+
+    for (const id of ids) {
+      const cxc = await CuentaCobrar.findById(id);
+      if (!cxc) { resultados.push({ id, ok: false, razon: "No encontrada" }); continue; }
+      if (cxc.estatus === "cobrada") {
+        resultados.push({ id, ok: false, razon: "Ya estaba cobrada", folioFactura: cxc.folioFactura, nombreReceptor: cxc.nombreReceptor });
+        continue;
+      }
+
+      cxc.estatus         = "cobrada";
+      cxc.fechaPago       = fecha;
+      cxc.complementoPago = complementoPago ?? null;
+      cxc.comentarios     = comentarios ?? "";
+      await cxc.save();
+
+      try {
+        await enviarEmailCobro({
+          cliente:     cxc.nombreReceptor ?? "—",
+          folio:       cxc.folioFactura ?? cxc.uuid?.slice(0, 8) ?? "—",
+          total:       cxc.total,
+          fechaPago:   cxc.fechaPago,
+          complemento: complementoPago ?? null,
+        });
+      } catch (mailErr) {
+        console.error("Error enviando email cobro múltiple:", mailErr.message);
+      }
+
+      resultados.push({
+        id,
+        ok: true,
         folioFactura: cxc.folioFactura,
         nombreReceptor: cxc.nombreReceptor,
         total: cxc.total,
