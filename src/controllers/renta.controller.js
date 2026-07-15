@@ -1,5 +1,6 @@
 import Renta from "../models/Renta.js";
 import Montacargas from "../models/Montacargas.js";
+import Cliente from "../models/Cliente.js";
 
 export async function getRentas(req, res) {
   try {
@@ -47,7 +48,6 @@ export async function updateRenta(req, res) {
   try {
     const body = { ...req.body };
 
-    // Si vienen populados como objetos, extraer solo el _id
     if (body.cliente?._id) body.cliente = body.cliente._id;
     if (body.montacargas?._id) body.montacargas = body.montacargas._id;
     if (body.asesor?._id) body.asesor = body.asesor._id;
@@ -106,7 +106,7 @@ export async function renovarRenta(req, res) {
     renta.renovaciones.push(renovacion);
     renta.fechaFin      = renovacion.fechaFinNueva;
     renta.precioMensual = renovacion.precioMensualNuevo;
-    renta.estatus        = "activa"; // por si estaba marcada como vencida
+    renta.estatus       = "activa";
     await renta.save();
 
     await renta.populate([
@@ -116,6 +116,27 @@ export async function renovarRenta(req, res) {
     ]);
 
     res.json(renta);
+  } catch (e) {
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+}
+
+export async function buscarRentasPorRfc(req, res) {
+  try {
+    const { rfc } = req.body;
+    if (!rfc) return res.status(400).json({ message: "RFC requerido" });
+
+    const cliente = await Cliente.findOne({ rfc: rfc.trim().toUpperCase() });
+    if (!cliente) return res.json({ rentas: [], clienteNombre: null });
+
+    const rentas = await Renta.find({
+      cliente: cliente._id,
+      estatus: { $in: ["activa", "vencida"] },
+    })
+      .populate("montacargas", "numeroEconomico marca modelo")
+      .populate("cliente", "nombre");
+
+    res.json({ rentas, clienteNombre: cliente.nombre });
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
   }
