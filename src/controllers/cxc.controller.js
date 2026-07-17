@@ -1,5 +1,5 @@
 import CuentaCobrar from "../models/CuentaCobrar.js";
-import { enviarEmailCobro } from "../utils/mailer.js";
+import { enviarEmailCobro, enviarEmailCobroMultiple } from "../utils/mailer.js";
 
 export async function getCxcs(req, res) {
   try {
@@ -134,6 +134,8 @@ export async function cobrarMultiple(req, res) {
 
     const fecha = fechaPago ? new Date(fechaPago) : new Date();
     const resultados = [];
+    const facturasEmail = [];
+    let clienteNombre = "—";
 
     for (const id of ids) {
       const cxc = await CuentaCobrar.findById(id);
@@ -149,17 +151,11 @@ export async function cobrarMultiple(req, res) {
       cxc.comentarios     = comentarios ?? "";
       await cxc.save();
 
-      try {
-        await enviarEmailCobro({
-          cliente:     cxc.nombreReceptor ?? "—",
-          folio:       cxc.folioFactura ?? cxc.uuid?.slice(0, 8) ?? "—",
-          total:       cxc.total,
-          fechaPago:   cxc.fechaPago,
-          complemento: complementoPago ?? null,
-        });
-      } catch (mailErr) {
-        console.error("Error enviando email cobro múltiple:", mailErr.message);
-      }
+      clienteNombre = cxc.nombreReceptor ?? "—";
+      facturasEmail.push({
+        folio: cxc.folioFactura ?? cxc.uuid?.slice(0, 8) ?? "—",
+        total: cxc.total,
+      });
 
       resultados.push({
         id,
@@ -168,6 +164,19 @@ export async function cobrarMultiple(req, res) {
         nombreReceptor: cxc.nombreReceptor,
         total: cxc.total,
       });
+    }
+
+    if (facturasEmail.length > 0) {
+      try {
+        await enviarEmailCobroMultiple({
+          cliente:      clienteNombre,
+          facturas:     facturasEmail,
+          totalGeneral: facturasEmail.reduce((s, f) => s + Number(f.total), 0),
+          fechaPago:    fecha,
+        });
+      } catch (mailErr) {
+        console.error("Error enviando email cobro múltiple:", mailErr.message);
+      }
     }
 
     res.json({ resultados });

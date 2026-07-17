@@ -408,6 +408,7 @@ export async function enviarEmailCobro({ cliente, folio, total, fechaPago, compl
     attachments,
   });
 }
+
 export async function enviarEmailPausaServicio(destinatarios, servicio, razon) {
   const ahora = new Date();
   const fecha = ahora.toLocaleDateString("es-MX", {
@@ -482,4 +483,65 @@ export async function enviarEmailPausaServicio(destinatarios, servicio, razon) {
       html,
     });
   }
+}
+
+// ── NUEVA FUNCIÓN ────────────────────────────────────────────────────────────
+
+export async function enviarEmailCobroMultiple({ cliente, facturas, totalGeneral, fechaPago }) {
+  const fecha = fechaPago
+    ? new Date(fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
+    : "—";
+
+  const facturasHtml = facturas.map(f => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #1a1d27;color:#f59e0b;font-weight:600">${f.folio ?? "—"}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #1a1d27;text-align:right;color:#22c55e;font-weight:600">
+        $${Number(f.total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+      </td>
+    </tr>`
+  ).join("");
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0c10;color:#e8eaf0;border-radius:12px;overflow:hidden">
+      <div style="background:#111318;padding:24px;border-bottom:2px solid #f59e0b">
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+             style="width:60px;background:#000;border-radius:6px;padding:4px" />
+        <h2 style="margin:12px 0 0;font-size:1.1rem;color:#f59e0b">Cobro múltiple registrado</h2>
+      </div>
+      <div style="padding:24px">
+        <p style="margin:0 0 16px;font-size:0.95rem">
+          Se registró el cobro de <strong>${facturas.length} factura${facturas.length !== 1 ? "s" : ""}</strong> del cliente <strong>${cliente}</strong>:
+        </p>
+        <table style="width:100%;border-collapse:collapse;font-size:0.9rem;background:#111318;border-radius:8px;overflow:hidden;margin-bottom:16px">
+          <thead>
+            <tr style="background:#1a1d27">
+              <th style="padding:10px 12px;text-align:left;font-size:0.78rem;color:#7a8099;text-transform:uppercase;letter-spacing:.05em">Folio factura</th>
+              <th style="padding:10px 12px;text-align:right;font-size:0.78rem;color:#7a8099;text-transform:uppercase;letter-spacing:.05em">Importe</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${facturasHtml}
+            <tr style="background:#1a1d27">
+              <td style="padding:10px 12px;font-weight:700;color:#fff">TOTAL COBRADO</td>
+              <td style="padding:10px 12px;text-align:right;font-weight:700;font-size:1rem;color:#22c55e">
+                $${Number(totalGeneral).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <table style="width:100%;border-collapse:collapse;font-size:0.9rem">
+          <tr><td style="padding:8px 0;color:#7a8099">Fecha de cobro</td><td style="padding:8px 0">${fecha}</td></tr>
+        </table>
+      </div>
+      <div style="padding:16px 24px;background:#111318;font-size:0.78rem;color:#7a8099">
+        Control Pipsa — Equipos Industriales y Montacargas de Guadalajara
+      </div>
+    </div>`;
+
+  await transporter.sendMail({
+    from:    `"Control Pipsa" <${process.env.MAIL_USER}>`,
+    to:      "admin@pipsamontacargas.com",
+    subject: `💰 Cobro múltiple — ${facturas.length} facturas | ${cliente}`,
+    html,
+  });
 }
