@@ -18,12 +18,11 @@ const solicitudCompraSchema = new mongoose.Schema({
   fechaLiberacion: { type: Date, default: null },
 }, { timestamps: true });
 
-solicitudCompraSchema.pre("save", async function (next) {
+solicitudCompraSchema.pre("save", async function () {
   if (!this.folio) {
     const count = await mongoose.model("SolicitudCompra").countDocuments();
     this.folio = `SOL-${String(count + 1).padStart(3, "0")}`;
   }
-  next();
 });
 
 export default mongoose.model("SolicitudCompra", solicitudCompraSchema);
