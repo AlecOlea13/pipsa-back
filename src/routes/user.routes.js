@@ -4,7 +4,7 @@ import { auth, requireRol } from "../middleware/auth.js";
 
 const router = Router();
 
-router.get("/", auth, requireRol("developer", "gerencia", "oficina", "almacen"), getUsers);
+router.get("/", auth, requireRol("developer", "gerencia", "oficina", "almacen", "supervisor_almacen"), getUsers);
 router.post("/",       auth, requireRol("developer"), createUser);
 router.put("/:id",     auth, requireRol("developer"), updateUser);
 router.delete("/:id",  auth, requireRol("developer"), deleteUser);
