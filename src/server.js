@@ -26,6 +26,7 @@ import proveedorRoutes from "./routes/proveedor.routes.js";
 import portalRoutes from "./routes/portal.routes.js";
 import vehiculoRoutes from "./routes/vehiculo.routes.js";
 import valeRoutes from "./routes/vale.routes.js";
+import solicitudCompraRoutes from "./routes/solicitudCompra.routes.js";
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 dns.setDefaultResultOrder('ipv4first');
@@ -66,6 +67,7 @@ app.use("/api/proveedores", proveedorRoutes);
 app.use("/api/portales", portalRoutes);
 app.use("/api/vehiculos", vehiculoRoutes);
 app.use("/api/vales-salida", valeRoutes);
+app.use("/api/solicitudes-compra", solicitudCompraRoutes);
 
 
 const MONGO_URI = process.env.MONGO_URI;
