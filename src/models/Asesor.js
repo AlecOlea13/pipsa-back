@@ -7,6 +7,7 @@ const asesorSchema = new mongoose.Schema(
     telefono: { type: String, trim: true },
     email:    { type: String, trim: true, lowercase: true },
     activo:   { type: Boolean, default: true },
+    usuario:  { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
   { timestamps: true }
 );
