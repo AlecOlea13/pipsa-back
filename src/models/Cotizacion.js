@@ -27,10 +27,20 @@ const clienteOcasionalSchema = new mongoose.Schema({
   contacto:  { type: String, trim: true },
 }, { _id: false });
 
+// ── Nuevo: datos específicos del curso DC3 ──
+const cursoDC3Schema = new mongoose.Schema({
+  modalidad:          { type: String, enum: ["teorico", "practico", "teorico-practico"], default: "teorico-practico" },
+  participantes:      { type: Number, default: 1 },
+  precioPorPersona:   { type: Number, default: 0 },
+  duracionHoras:      { type: Number, default: 4 },
+  incluyeConstancia:  { type: Boolean, default: true },
+  lugar:              { type: String, trim: true },
+}, { _id: false });
+
 const cotizacionSchema = new mongoose.Schema(
   {
     folio:        { type: String, required: true, trim: true, unique: true },
-    tipo:         { type: String, enum: ["servicio", "renta", "venta", "refacciones"], required: true },
+    tipo:         { type: String, enum: ["servicio", "renta", "venta", "refacciones", "curso"], required: true },
     tipoPeriodo:  { type: String, enum: ["semanal", "mensual", "anual"], default: null },
     cliente:      { type: mongoose.Schema.Types.ObjectId, ref: "Cliente", default: null },
     clienteOcasional: { type: clienteOcasionalSchema, default: null },
@@ -44,10 +54,10 @@ const cotizacionSchema = new mongoose.Schema(
     total:        { type: Number, default: 0 },
     condiciones:  { type: String, trim: true },
     estatus: {
-        type: String,
-        enum: ["activa", "facturada", "cancelada"],
-        default: "activa",
-      },
+      type: String,
+      enum: ["activa", "facturada", "cancelada"],
+      default: "activa",
+    },
     numeroFactura: { type: String, trim: true, default: null },
     notas:        { type: String, trim: true },
     asesor:       { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", default: null },
@@ -55,6 +65,8 @@ const cotizacionSchema = new mongoose.Schema(
     equipoModelo: { type: String, trim: true, default: null },
     equipoSerie:  { type: String, trim: true, default: null },
     comentarios:  [comentarioSchema],
+    // ── Nuevo ──
+    cursoDC3:     { type: cursoDC3Schema, default: null },
   },
   { timestamps: true }
 );
