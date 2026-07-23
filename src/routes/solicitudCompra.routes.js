@@ -11,10 +11,14 @@ const POPULATE = [
   { path: "solicitadoPor", select: "nombre rol" },
   { path: "liberadaPor",   select: "nombre" },
   {
-    path: "cotizacion",
-    select: "folio tipo cliente clienteOcasional total estatus items fecha",
-    populate: { path: "cliente", select: "nombre" },
-  },
+  path: "cotizacion",
+  select: "folio tipo tipoPeriodo cliente clienteOcasional montacargas asesor total subtotal iva estatus items fecha lugar descripcionServicio condiciones notas equipoMarca equipoModelo equipoSerie numeroFactura",
+  populate: [
+    { path: "cliente",     select: "nombre direccion telefono contacto" },
+    { path: "montacargas", select: "numeroEconomico marca modelo capacidad serie alturaColapsada alturaLevante horquillas desplazadorLateral tipoLlantas voltaje tipoBateria incluyeCargador equipoSeguridad" },
+    { path: "asesor",      select: "nombre puesto telefono email" },
+  ],
+},
 ];
 
 router.get("/", auth, async (req, res) => {
