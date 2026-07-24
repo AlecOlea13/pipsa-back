@@ -251,10 +251,12 @@ export async function cerrarServicio(req, res) {
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
 
     await Montacargas.findByIdAndUpdate(servicio.montacargas, {
-      horometroActual: horometro,
-      fechaUltimoServicio: new Date(),
-      proximoServicio,
-      estatus: estatusMonta || "disponible",
+    horometroActual: horometro,
+    fechaUltimoServicio: new Date(),
+    proximoServicio,
+    // ✅ calcular próximo mantenimiento automáticamente: 1 mes después
+    proximoMantenimiento: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+    estatus: estatusMonta || "disponible",
     });
 
     try {
