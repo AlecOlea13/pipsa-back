@@ -121,12 +121,36 @@ export async function renovarRenta(req, res) {
   }
 }
 
+// export async function buscarRentasPorRfc(req, res) {
+//   try {
+//     const { rfc } = req.body;
+//     if (!rfc) return res.status(400).json({ message: "RFC requerido" });
+
+//     const cliente = await Cliente.findOne({ rfc: rfc.trim().toUpperCase() });
+//     if (!cliente) return res.json({ rentas: [], clienteNombre: null });
+
+//     const rentas = await Renta.find({
+//       cliente: cliente._id,
+//       estatus: { $in: ["activa", "vencida"] },
+//     })
+//       .populate("montacargas", "numeroEconomico marca modelo")
+//       .populate("cliente", "nombre");
+
+//     res.json({ rentas, clienteNombre: cliente.nombre });
+//   } catch (e) {
+//     res.status(500).json({ message: "Error en el servidor" });
+//   }
+// }
+
+// momentaneo
 export async function buscarRentasPorRfc(req, res) {
   try {
     const { rfc } = req.body;
-    if (!rfc) return res.status(400).json({ message: "RFC requerido" });
-
+    console.log("RFC recibido:", rfc);
+    
     const cliente = await Cliente.findOne({ rfc: rfc.trim().toUpperCase() });
+    console.log("Cliente encontrado:", cliente?.nombre, "| RFC en BD:", cliente?.rfc);
+    
     if (!cliente) return res.json({ rentas: [], clienteNombre: null });
 
     const rentas = await Renta.find({
@@ -136,6 +160,7 @@ export async function buscarRentasPorRfc(req, res) {
       .populate("montacargas", "numeroEconomico marca modelo")
       .populate("cliente", "nombre");
 
+    console.log("Rentas encontradas:", rentas.length);
     res.json({ rentas, clienteNombre: cliente.nombre });
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
