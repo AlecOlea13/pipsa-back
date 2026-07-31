@@ -41,33 +41,71 @@ export async function deleteCxc(req, res) {
   }
 }
 
+// ── Cobro simple o parcial ──
 export async function cobrarCxc(req, res) {
   try {
-    const { fechaPago, complementoPago, comentarios } = req.body;
-    const cxc = await CuentaCobrar.findByIdAndUpdate(
-      req.params.id,
-      {
-        estatus:         "cobrada",
-        fechaPago:       fechaPago ? new Date(fechaPago) : new Date(),
-        complementoPago: complementoPago ?? null,
-        comentarios:     comentarios ?? "",
-      },
-      { new: true }
-    );
+    const { fechaPago, complementoPago, comentarios, montoParcial } = req.body;
+    const cxc = await CuentaCobrar.findById(req.params.id);
     if (!cxc) return res.status(404).json({ message: "Cuenta por cobrar no encontrada" });
+    if (cxc.estatus === "cobrada") return res.status(400).json({ message: "Esta factura ya está cobrada" });
+    if (cxc.estatus === "cancelada") return res.status(400).json({ message: "Esta factura está cancelada" });
+
+    const fecha = fechaPago ? new Date(fechaPago) : new Date();
+    const monto = montoParcial ? Number(montoParcial) : (cxc.total - (cxc.montoPagado ?? 0));
+
+    if (monto <= 0) return res.status(400).json({ message: "El monto debe ser mayor a 0" });
+
+    // Registrar pago en historial
+    cxc.pagos.push({
+      monto,
+      fechaPago: fecha,
+      complementoPago: complementoPago ?? null,
+      comentarios: comentarios ?? "",
+    });
+
+    cxc.montoPagado     = (cxc.montoPagado ?? 0) + monto;
+    cxc.fechaPago       = fecha;
+    if (complementoPago) cxc.complementoPago = complementoPago;
+    if (comentarios)     cxc.comentarios     = comentarios;
+
+    // Determinar estatus según lo pagado
+    if (cxc.montoPagado >= cxc.total) {
+      cxc.montoPagado = cxc.total;
+      cxc.estatus     = "cobrada";
+    } else {
+      cxc.estatus = "parcial";
+    }
+
+    await cxc.save();
 
     try {
       await enviarEmailCobro({
-        cliente:    cxc.nombreReceptor ?? "—",
-        folio:      cxc.folioFactura   ?? cxc.uuid?.slice(0, 8) ?? "—",
-        total:      cxc.total,
-        fechaPago:  cxc.fechaPago,
+        cliente:     cxc.nombreReceptor ?? "—",
+        folio:       cxc.folioFactura ?? cxc.uuid?.slice(0, 8) ?? "—",
+        total:       monto,
+        fechaPago:   fecha,
         complemento: complementoPago ?? null,
       });
     } catch (mailErr) {
       console.error("Error enviando email de cobro:", mailErr.message);
     }
 
+    res.json(cxc);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+}
+
+// ── Cancelar factura ──
+export async function cancelarCxc(req, res) {
+  try {
+    const cxc = await CuentaCobrar.findByIdAndUpdate(
+      req.params.id,
+      { estatus: "cancelada" },
+      { new: true }
+    );
+    if (!cxc) return res.status(404).json({ message: "Cuenta por cobrar no encontrada" });
     res.json(cxc);
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
@@ -94,17 +132,40 @@ export async function cobrarPorRep(req, res) {
         continue;
       }
 
-      cxc.estatus         = "cobrada";
-      cxc.fechaPago       = fechaPago ? new Date(fechaPago) : new Date();
+      if (cxc.estatus === "cancelada") {
+        resultados.push({ uuid: pago.uuid, encontrada: true, yaEstaba: true, folioFactura: cxc.folioFactura, nombreReceptor: cxc.nombreReceptor });
+        continue;
+      }
+
+      const fecha = fechaPago ? new Date(fechaPago) : new Date();
+      const monto = pago.montoPagado ?? cxc.total;
+
+      cxc.pagos.push({
+        monto,
+        fechaPago: fecha,
+        complementoPago: complementoPago ?? null,
+        comentarios: "",
+      });
+
+      cxc.montoPagado     = (cxc.montoPagado ?? 0) + monto;
+      cxc.fechaPago       = fecha;
       cxc.complementoPago = complementoPago ?? null;
+
+      if (cxc.montoPagado >= cxc.total) {
+        cxc.montoPagado = cxc.total;
+        cxc.estatus     = "cobrada";
+      } else {
+        cxc.estatus = "parcial";
+      }
+
       await cxc.save();
 
       try {
         await enviarEmailCobro({
           cliente:     cxc.nombreReceptor ?? "—",
           folio:       cxc.folioFactura ?? cxc.uuid?.slice(0, 8) ?? "—",
-          total:       pago.montoPagado ?? cxc.total,
-          fechaPago:   cxc.fechaPago,
+          total:       monto,
+          fechaPago:   fecha,
           complemento: complementoPago ?? null,
         });
       } catch (mailErr) {
@@ -144,7 +205,21 @@ export async function cobrarMultiple(req, res) {
         resultados.push({ id, ok: false, razon: "Ya estaba cobrada", folioFactura: cxc.folioFactura, nombreReceptor: cxc.nombreReceptor });
         continue;
       }
+      if (cxc.estatus === "cancelada") {
+        resultados.push({ id, ok: false, razon: "Cancelada", folioFactura: cxc.folioFactura, nombreReceptor: cxc.nombreReceptor });
+        continue;
+      }
 
+      const monto = cxc.total - (cxc.montoPagado ?? 0);
+
+      cxc.pagos.push({
+        monto,
+        fechaPago: fecha,
+        complementoPago: complementoPago ?? null,
+        comentarios: comentarios ?? "",
+      });
+
+      cxc.montoPagado     = cxc.total;
       cxc.estatus         = "cobrada";
       cxc.fechaPago       = fecha;
       cxc.complementoPago = complementoPago ?? null;

@@ -7,6 +7,14 @@ const conceptoSchema = new mongoose.Schema({
   importe:       { type: Number, default: 0 },
 }, { _id: false });
 
+// ── Nuevo: historial de pagos parciales ──
+const pagoSchema = new mongoose.Schema({
+  monto:          { type: Number, required: true },
+  fechaPago:      { type: Date, default: Date.now },
+  complementoPago:{ type: String, trim: true, default: null },
+  comentarios:    { type: String, trim: true, default: "" },
+}, { timestamps: true });
+
 const cxcSchema = new mongoose.Schema(
   {
     uuid:           { type: String, trim: true, unique: true, sparse: true },
@@ -22,11 +30,13 @@ const cxcSchema = new mongoose.Schema(
     total:          { type: Number, default: 0 },
     moneda:         { type: String, default: "MXN" },
     // Cobro
-    estatus:          { type: String, enum: ["pendiente", "cobrada"], default: "pendiente" },
-    fechaPago:        { type: Date, default: null },
-    complementoPago:  { type: String, trim: true, default: null },
-    comentarios:      { type: String, trim: true, default: "" },
-    notas:            { type: String, trim: true, default: "" },
+    estatus:         { type: String, enum: ["pendiente", "parcial", "cobrada", "cancelada"], default: "pendiente" },
+    montoPagado:     { type: Number, default: 0 },
+    fechaPago:       { type: Date, default: null },
+    complementoPago: { type: String, trim: true, default: null },
+    comentarios:     { type: String, trim: true, default: "" },
+    notas:           { type: String, trim: true, default: "" },
+    pagos:           [pagoSchema],
   },
   { timestamps: true }
 );

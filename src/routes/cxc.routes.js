@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getCxcs, createCxc, updateCxc, deleteCxc, cobrarCxc, cobrarPorRep, cobrarMultiple } from "../controllers/cxc.controller.js";
 import { auth, requireRol } from "../middleware/auth.js";
+import { cancelarCxc } from "../controllers/cxc.controller.js";
 
 const router = Router();
 const canAccess = requireRol("developer", "gerencia", "oficina");
@@ -12,5 +13,6 @@ router.post("/cobrar-multiple", auth, canAccess, cobrarMultiple);
 router.put("/:id",             auth, canAccess, updateCxc);
 router.delete("/:id",          auth, requireRol("developer", "gerencia"), deleteCxc);
 router.post("/:id/cobrar",     auth, canAccess, cobrarCxc);
+router.post("/:id/cancelar", auth, cancelarCxc);
 
 export default router;
