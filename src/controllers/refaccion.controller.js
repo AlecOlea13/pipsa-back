@@ -9,8 +9,16 @@ export async function getRefacciones(req, res) {
   }
 }
 
+// ── CAMBIO 5: validar número de parte duplicado ──
 export async function createRefaccion(req, res) {
   try {
+    const { numeroParte } = req.body;
+    if (numeroParte && numeroParte.trim()) {
+      const existe = await Refaccion.findOne({ numeroParte: numeroParte.trim(), activo: true });
+      if (existe) {
+        return res.status(409).json({ message: "Ya existe una refacción con ese número de parte" });
+      }
+    }
     const ref = await Refaccion.create(req.body);
     res.status(201).json(ref);
   } catch (e) {
@@ -39,7 +47,7 @@ export async function deleteRefaccion(req, res) {
 
 export async function ajustarStock(req, res) {
   try {
-    const { cantidad, tipo } = req.body; // tipo: "entrada" | "salida"
+    const { cantidad, tipo } = req.body;
     const ref = await Refaccion.findById(req.params.id);
     if (!ref) return res.status(404).json({ message: "Refacción no encontrada" });
     ref.stock = tipo === "entrada" ? ref.stock + cantidad : ref.stock - cantidad;

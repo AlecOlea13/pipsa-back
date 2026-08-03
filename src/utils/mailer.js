@@ -45,7 +45,6 @@ export async function enviarEmailCierreServicio(destinatarios, servicio) {
   const tipo    = servicio.tipoServicio;
   const orden   = servicio.ordenRefaccion;
 
-  // ── Tiempo empleado en el servicio ──
   let tiempoTexto = null;
   if (servicio.horaInicio && servicio.horaFin) {
     const minutos = Math.round((new Date(servicio.horaFin).getTime() - new Date(servicio.horaInicio).getTime()) / 60000);
@@ -356,24 +355,51 @@ export async function enviarEmailPagoMultiple({ proveedor, facturas, totalGenera
   }
 }
 
-export async function enviarEmailCobro({ cliente, folio, total, fechaPago, complemento }) {
+// ── CAMBIO 6: enviarEmailCobro con soporte parcial ────────────────────────
+export async function enviarEmailCobro({
+  cliente, folio, total, fechaPago, complemento,
+  esParcial = false, totalFactura = 0, montoPagado = 0, pendiente = 0,
+}) {
   const fecha = fechaPago
     ? new Date(fechaPago).toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })
     : "—";
 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0c10;color:#e8eaf0;border-radius:12px;overflow:hidden">
-      <div style="background:#111318;padding:24px;border-bottom:2px solid #f59e0b">
+      <div style="background:#111318;padding:24px;border-bottom:2px solid ${esParcial ? "#f59e0b" : "#22c55e"}">
         <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
              style="width:60px;background:#000;border-radius:6px;padding:4px" />
-        <h2 style="margin:12px 0 0;font-size:1.1rem;color:#f59e0b">Cobro registrado</h2>
+        <h2 style="margin:12px 0 0;font-size:1.1rem;color:${esParcial ? "#f59e0b" : "#22c55e"}">
+          ${esParcial ? "🔶 Pago parcial registrado" : "✅ Cobro registrado"}
+        </h2>
       </div>
       <div style="padding:24px">
-        <p style="margin:0 0 16px;font-size:0.95rem">Se registró el cobro de la siguiente factura:</p>
+        <p style="margin:0 0 16px;font-size:0.95rem">
+          ${esParcial
+            ? "Se registró un <strong>pago parcial</strong> de la siguiente factura:"
+            : "Se registró el cobro de la siguiente factura:"
+          }
+        </p>
         <table style="width:100%;border-collapse:collapse;font-size:0.9rem">
           <tr><td style="padding:8px 0;color:#7a8099">Cliente</td><td style="padding:8px 0;font-weight:600">${cliente}</td></tr>
           <tr><td style="padding:8px 0;color:#7a8099">Folio factura</td><td style="padding:8px 0;font-weight:600">${folio}</td></tr>
-          <tr><td style="padding:8px 0;color:#7a8099">Total cobrado</td><td style="padding:8px 0;font-weight:700;color:#22c55e">$${Number(total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td></tr>
+          <tr>
+            <td style="padding:8px 0;color:#7a8099">${esParcial ? "Monto pagado" : "Total cobrado"}</td>
+            <td style="padding:8px 0;font-weight:700;color:#22c55e">$${Number(total).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+          </tr>
+          ${esParcial ? `
+          <tr style="background:rgba(245,158,11,0.06)">
+            <td style="padding:8px 0;color:#7a8099">Total factura</td>
+            <td style="padding:8px 0;font-weight:600">$${Number(totalFactura).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+          </tr>
+          <tr style="background:rgba(245,158,11,0.06)">
+            <td style="padding:8px 0;color:#7a8099">Total pagado acumulado</td>
+            <td style="padding:8px 0;font-weight:600;color:#22c55e">$${Number(montoPagado).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+          </tr>
+          <tr style="background:rgba(245,158,11,0.06)">
+            <td style="padding:8px 0;color:#7a8099;font-weight:700">Pendiente por cobrar</td>
+            <td style="padding:8px 0;font-weight:700;color:#f59e0b;font-size:1rem">$${Number(pendiente).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+          </tr>` : ""}
           <tr><td style="padding:8px 0;color:#7a8099">Fecha de cobro</td><td style="padding:8px 0">${fecha}</td></tr>
           ${complemento ? `<tr><td style="padding:8px 0;color:#7a8099">Complemento</td><td style="padding:8px 0"><span style="color:#22c55e">✅ Adjunto en este correo</span></td></tr>` : ""}
         </table>
@@ -403,7 +429,9 @@ export async function enviarEmailCobro({ cliente, folio, total, fechaPago, compl
   await transporter.sendMail({
     from:        `"Control Pipsa" <${process.env.MAIL_USER}>`,
     to:          "admin@pipsamontacargas.com",
-    subject:     `💰 Cobro registrado — ${folio} | ${cliente}`,
+    subject:     esParcial
+      ? `🔶 Pago parcial — ${folio} | ${cliente}`
+      : `💰 Cobro registrado — ${folio} | ${cliente}`,
     html,
     attachments,
   });
@@ -484,8 +512,6 @@ export async function enviarEmailPausaServicio(destinatarios, servicio, razon) {
     });
   }
 }
-
-// ── NUEVA FUNCIÓN ────────────────────────────────────────────────────────────
 
 export async function enviarEmailCobroMultiple({ cliente, facturas, totalGeneral, fechaPago }) {
   const fecha = fechaPago
