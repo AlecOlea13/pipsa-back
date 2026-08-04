@@ -53,6 +53,7 @@ const cotizacionSchema = new mongoose.Schema(
     iva:          { type: Number, default: 0 },
     total:        { type: Number, default: 0 },
     condiciones:  { type: String, trim: true },
+    moneda: { type: String, enum: ["MXN", "USD"], default: "MXN" },
     estatus: {
       type: String,
       enum: ["activa", "facturada", "cancelada"],
