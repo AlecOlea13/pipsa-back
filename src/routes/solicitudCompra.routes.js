@@ -67,14 +67,21 @@ router.post("/:id/liberar", auth, puedeLiberar, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
-router.post("/:id/cancelar", auth, puedeLiberar, async (req, res) => {
+router.post("/", auth, puedeCrear, async (req, res) => {
   try {
-    const sol = await SolicitudCompra.findById(req.params.id);
-    if (!sol) return res.status(404).json({ message: "No encontrada" });
-    sol.estatus = "cancelada";
+    const { items, notas, cotizacionId, moneda } = req.body; // ── agregar moneda
+    if (!items?.length) return res.status(400).json({ message: "Agrega al menos un artículo" });
+
+    const sol = new SolicitudCompra({
+      solicitadoPor: req.userId,
+      items,
+      notas:      notas || "",
+      cotizacion: cotizacionId || null,
+      moneda:     moneda || "MXN", // ── NUEVO
+    });
     await sol.save();
     await sol.populate(POPULATE);
-    res.json(sol);
+    res.status(201).json(sol);
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
