@@ -441,4 +441,29 @@ router.post("/:id/enviar-correo", auth, puedeFacturar, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+// ════════════════════════════════════════
+// GET /facturacion/clientes/buscar?q=RFC_O_NOMBRE
+// ════════════════════════════════════════
+router.get("/clientes/buscar", auth, puedeFacturar, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 2) return res.json([]);
+
+    const body = {
+      Solicitud: {
+        rfc:    EF_RFC,
+        accion: "listarClientes",
+        modo:   "produccion",
+        busqueda: q,
+      },
+    };
+
+    const efRes = await llamarEF("listarClientes", body);
+    const clientes = efRes?.clientes ?? efRes?.Clientes ?? [];
+    res.json(clientes);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
 export default router;
