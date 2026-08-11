@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { auth, requireRol } from "../middleware/auth.js";
 import Factura from "../models/Factura.js";
+import ProductoFiscal from "../models/ProductoFiscal.js";
 
 const router = Router();
 
@@ -28,12 +29,12 @@ async function llamarEF(endpoint, body) {
 }
 
 // ── Helper: construir partidas con IVA ──
-function construirPartidas(partidas, moneda = "MXN") {
+function construirPartidas(partidas) {
   return partidas.map(p => {
-    const importe      = parseFloat((p.cantidad * p.valorUnitario).toFixed(2));
-    const descuento    = parseFloat((p.descuento ?? 0).toFixed(2));
-    const base         = parseFloat((importe - descuento).toFixed(2));
-    const importeIva   = parseFloat((base * 0.16).toFixed(2));
+    const importe    = parseFloat((p.cantidad * p.valorUnitario).toFixed(2));
+    const descuento  = parseFloat((p.descuento ?? 0).toFixed(2));
+    const base       = parseFloat((importe - descuento).toFixed(2));
+    const importeIva = parseFloat((base * 0.16).toFixed(2));
 
     return {
       cantidad:         String(p.cantidad),
@@ -59,11 +60,11 @@ function construirPartidas(partidas, moneda = "MXN") {
 
 // ── Helper: calcular totales ──
 function calcularTotales(partidas) {
-  const subtotal    = partidas.reduce((a, p) => a + p.cantidad * p.valorUnitario, 0);
-  const descuentos  = partidas.reduce((a, p) => a + (p.descuento ?? 0), 0);
-  const base        = subtotal - descuentos;
-  const iva         = parseFloat((base * 0.16).toFixed(2));
-  const total       = parseFloat((base + iva).toFixed(2));
+  const subtotal   = partidas.reduce((a, p) => a + p.cantidad * p.valorUnitario, 0);
+  const descuentos = partidas.reduce((a, p) => a + (p.descuento ?? 0), 0);
+  const base       = subtotal - descuentos;
+  const iva        = parseFloat((base * 0.16).toFixed(2));
+  const total      = parseFloat((base + iva).toFixed(2));
   return {
     subtotal:   parseFloat(subtotal.toFixed(2)),
     descuentos: parseFloat(descuentos.toFixed(2)),
@@ -89,10 +90,10 @@ router.get("/", auth, puedeFacturar, async (req, res) => {
     }
     if (search) {
       filtro.$or = [
-        { folio:                { $regex: search, $options: "i" } },
-        { uuid:                 { $regex: search, $options: "i" } },
-        { "receptor.nombre":    { $regex: search, $options: "i" } },
-        { "receptor.rfc":       { $regex: search, $options: "i" } },
+        { folio:             { $regex: search, $options: "i" } },
+        { uuid:              { $regex: search, $options: "i" } },
+        { "receptor.nombre": { $regex: search, $options: "i" } },
+        { "receptor.rfc":    { $regex: search, $options: "i" } },
       ];
     }
     const facturas = await Factura.find(filtro)
@@ -101,6 +102,95 @@ router.get("/", auth, puedeFacturar, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(200);
     res.json(facturas);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// ════════════════════════════════════════
+// GET /facturacion/clientes/buscar?q=RFC_O_NOMBRE
+// (DEBE ir antes de /:id)
+// ════════════════════════════════════════
+router.get("/clientes/buscar", auth, puedeFacturar, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 2) return res.json([]);
+
+    const Cliente = (await import("../models/Cliente.js")).default;
+    const clientes = await Cliente.find({
+      $or: [
+        { nombre:      { $regex: q, $options: "i" } },
+        { rfc:         { $regex: q, $options: "i" } },
+        { razonSocial: { $regex: q, $options: "i" } },
+        { contacto:    { $regex: q, $options: "i" } },
+      ],
+      estatus: "activo",
+    }).select("nombre razonSocial rfc regimenFiscal usoCFDI codigoPostal email emailFiscal").limit(10);
+
+    res.json(clientes.map(c => ({
+      rfc:           c.rfc           ?? "",
+      nombreFiscal:  c.razonSocial   ?? c.nombre ?? "",
+      regimenFiscal: c.regimenFiscal ?? "601",
+      usoCfdi:       c.usoCFDI       ?? "G03",
+      cp:            c.codigoPostal  ?? "",
+      email:         c.emailFiscal   ?? c.email ?? "",
+    })));
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ════════════════════════════════════════
+// GET /facturacion/productos — catálogo propio de productos/servicios fiscales
+// (DEBE ir antes de /:id)
+// ════════════════════════════════════════
+router.get("/productos", auth, puedeFacturar, async (req, res) => {
+  try {
+    const { q } = req.query;
+    const filtro = { activo: true };
+    if (q && q.length >= 1) {
+      filtro.$or = [
+        { descripcion: { $regex: q, $options: "i" } },
+        { claveSAT:    { $regex: q, $options: "i" } },
+      ];
+    }
+    const productos = await ProductoFiscal.find(filtro).sort({ descripcion: 1 }).limit(50);
+    res.json(productos);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// ════════════════════════════════════════
+// POST /facturacion/productos — crear producto en catálogo
+// ════════════════════════════════════════
+router.post("/productos", auth, requireRol("developer", "gerencia"), async (req, res) => {
+  try {
+    const { claveSAT, claveUnidad, unidad, descripcion } = req.body;
+    if (!claveSAT || !descripcion) {
+      return res.status(400).json({ message: "Clave SAT y descripción son requeridas" });
+    }
+    const producto = await ProductoFiscal.create({
+      claveSAT, claveUnidad: claveUnidad || "E48", unidad: unidad || "Unidad de servicio", descripcion,
+    });
+    res.status(201).json(producto);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// ════════════════════════════════════════
+// PUT /facturacion/productos/:id — editar producto
+// ════════════════════════════════════════
+router.put("/productos/:id", auth, requireRol("developer", "gerencia"), async (req, res) => {
+  try {
+    const producto = await ProductoFiscal.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!producto) return res.status(404).json({ message: "No encontrado" });
+    res.json(producto);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
+// ════════════════════════════════════════
+// DELETE /facturacion/productos/:id — desactivar producto
+// ════════════════════════════════════════
+router.delete("/productos/:id", auth, requireRol("developer", "gerencia"), async (req, res) => {
+  try {
+    await ProductoFiscal.findByIdAndUpdate(req.params.id, { activo: false });
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
@@ -121,7 +211,7 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
     }
 
     const { subtotal, descuentos, base, iva, total } = calcularTotales(partidas);
-    const partidasEF = construirPartidas(partidas, moneda);
+    const partidasEF = construirPartidas(partidas);
 
     const folio = folioInterno ?? `${Date.now()}`;
     const fecha = fechaEmision
@@ -173,7 +263,6 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
             BloqueInferior: { titulo: "Notas", texto: notas },
           },
         } : {}),
-        // Enviar correo al cliente si tiene email
         ...(receptor.email ? {
           EnviarCFDI: { Correos: [receptor.email] },
         } : {}),
@@ -197,7 +286,7 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       uuid:         ack.folioFiscalUUID,
       tipo:         "factura",
       estatus:      "vigente",
-      estatusPago:  metodoPago === "PUE" ? "sin_pago" : "sin_pago",
+      estatusPago:  "sin_pago",
       moneda,
       tipoCambio:   tipoCambio ?? null,
       subtotal,
@@ -330,15 +419,13 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
 
     const ack = efRes.AckEnlaceFiscal;
 
-    // Actualizar factura
     const nuevoTotalPagado = parseFloat((factura.totalPagado + monto).toFixed(2));
     const nuevoEstatus = nuevoTotalPagado >= factura.total ? "pagada" : "parcial";
     await Factura.findByIdAndUpdate(facturaId, {
-      totalPagado:  nuevoTotalPagado,
-      estatusPago:  nuevoEstatus,
+      totalPagado: nuevoTotalPagado,
+      estatusPago: nuevoEstatus,
     });
 
-    // Guardar REP
     const rep = await Factura.create({
       folio:    `RP-${ack.folioInterno}`,
       serie:    "RP",
@@ -439,38 +526,6 @@ router.post("/:id/enviar-correo", auth, puedeFacturar, async (req, res) => {
     const efRes = await llamarEF("enviarCfdi", body);
     res.json({ ok: true, efRes });
   } catch (e) { res.status(500).json({ message: e.message }); }
-});
-
-// ════════════════════════════════════════
-// GET /facturacion/clientes/buscar?q=RFC_O_NOMBRE
-// ════════════════════════════════════════
-router.get("/clientes/buscar", auth, puedeFacturar, async (req, res) => {
-  try {
-    const { q } = req.query;
-    if (!q || q.length < 2) return res.json([]);
-
-    const Cliente = (await import("../models/Cliente.js")).default;
-    const clientes = await Cliente.find({
-      $or: [
-        { nombre:      { $regex: q, $options: "i" } },
-        { rfc:         { $regex: q, $options: "i" } },
-        { razonSocial: { $regex: q, $options: "i" } },
-        { contacto:    { $regex: q, $options: "i" } },
-      ],
-      estatus: "activo",
-    }).select("nombre razonSocial rfc regimenFiscal usoCFDI codigoPostal email emailFiscal").limit(10);
-
-    res.json(clientes.map(c => ({
-      rfc:           c.rfc           ?? "",
-      nombreFiscal:  c.razonSocial   ?? c.nombre ?? "",
-      regimenFiscal: c.regimenFiscal ?? "601",
-      usoCfdi:       c.usoCFDI       ?? "G03",
-      cp:            c.codigoPostal  ?? "",
-      email:         c.emailFiscal   ?? c.email ?? "",
-    })));
-  } catch (e) {
-    res.status(500).json({ message: e.message });
-  }
 });
 
 export default router;
