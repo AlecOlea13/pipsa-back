@@ -449,18 +449,25 @@ router.get("/clientes/buscar", auth, puedeFacturar, async (req, res) => {
     const { q } = req.query;
     if (!q || q.length < 2) return res.json([]);
 
-    const body = {
-      Solicitud: {
-        rfc:    EF_RFC,
-        accion: "listarClientes",
-        modo:   "produccion",
-        busqueda: q,
-      },
-    };
+    const Cliente = (await import("../models/Cliente.js")).default;
+    const clientes = await Cliente.find({
+      $or: [
+        { nombre:      { $regex: q, $options: "i" } },
+        { rfc:         { $regex: q, $options: "i" } },
+        { razonSocial: { $regex: q, $options: "i" } },
+        { contacto:    { $regex: q, $options: "i" } },
+      ],
+      estatus: "activo",
+    }).select("nombre razonSocial rfc regimenFiscal usoCFDI codigoPostal email emailFiscal").limit(10);
 
-    const efRes = await llamarEF("listarClientes", body);
-    const clientes = efRes?.clientes ?? efRes?.Clientes ?? [];
-    res.json(clientes);
+    res.json(clientes.map(c => ({
+      rfc:           c.rfc           ?? "",
+      nombreFiscal:  c.razonSocial   ?? c.nombre ?? "",
+      regimenFiscal: c.regimenFiscal ?? "601",
+      usoCfdi:       c.usoCFDI       ?? "G03",
+      cp:            c.codigoPostal  ?? "",
+      email:         c.emailFiscal   ?? c.email ?? "",
+    })));
   } catch (e) {
     res.status(500).json({ message: e.message });
   }
