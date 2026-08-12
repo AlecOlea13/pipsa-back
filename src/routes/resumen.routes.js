@@ -46,8 +46,8 @@ router.get("/", auth, soloDeveloperYGerencia, async (req, res) => {
       Servicio.countDocuments({ createdAt: { $gte: hace7 } }),
       Servicio.countDocuments({ estatus: { $in: ["abierto", "en_proceso"] } }),
       Servicio.aggregate([
-        { $match: { createdAt: { $gte: hace7 }, tecnico: { $exists: true, $ne: null } } },
-        { $group: { _id: "$tecnico", total: { $sum: 1 } } },
+        { $match: { createdAt: { $gte: hace7 }, tecnicoAsignado: { $exists: true, $ne: null } } },
+        { $group: { _id: "$tecnicoAsignado", total: { $sum: 1 } } },
         { $sort: { total: -1 } },
         { $limit: 1 },
         { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "u" } },
@@ -75,9 +75,9 @@ router.get("/", auth, soloDeveloperYGerencia, async (req, res) => {
         { $group: { _id: "$estatus", total: { $sum: 1 } } },
       ]),
       Servicio.find({ createdAt: { $gte: hace7 } })
-        .populate("tecnico", "nombre")
+        .populate("tecnicoAsignado", "nombre")
         .populate("montacargas", "numeroEconomico marca modelo")
-        .select("folio estatus fechaInicio fechaCierre tecnico montacargas")
+        .select("folio estatus fechaInicio fechaCierre tecnicoAsignado montacargas")
         .sort({ createdAt: -1 })
         .limit(10),
       Cotizacion.find({ createdAt: { $gte: hace7 } })
