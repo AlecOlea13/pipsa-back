@@ -19,12 +19,15 @@ async function getModels() {
   return { Servicio, Cotizacion, Factura, SolicitudCompra };
 }
 
+// ════════════════════════════════════════
+// GET /api/resumen
+// ════════════════════════════════════════
 router.get("/", auth, soloDeveloperYGerencia, async (req, res) => {
   try {
     const { Servicio, Cotizacion, Factura, SolicitudCompra } = await getModels();
 
     const ahora = new Date();
-    const hace7 = new Date(ahora); hace7.setDate(ahora.getDate() - 7);
+    const hace7  = new Date(ahora); hace7.setDate(ahora.getDate() - 7);
     const hace30 = new Date(ahora); hace30.setDate(ahora.getDate() - 30);
 
     const [
@@ -94,30 +97,77 @@ router.get("/", auth, soloDeveloperYGerencia, async (req, res) => {
     res.json({
       generadoEn: ahora.toISOString(),
       servicios: {
-        enSemana: serviciosSemana,
-        abiertosAhora: serviciosAbiertos,
+        enSemana:         serviciosSemana,
+        abiertosAhora:    serviciosAbiertos,
         tecnicoMasActivo: tecnicoMasActivo[0] ?? null,
-        ultimos: ultimosServicios,
+        ultimos:          ultimosServicios,
       },
       cotizaciones: {
-        enSemana: cotizacionesSemana,
+        enSemana:   cotizacionesSemana,
         porEstatus: Object.fromEntries(cotizacionesPorEstatus.map(x => [x._id, x.total])),
-        porTipo: Object.fromEntries(cotizacionesPorTipo.map(x => [x._id, x.total])),
-        ultimas: ultimasCotizaciones,
+        porTipo:    Object.fromEntries(cotizacionesPorTipo.map(x => [x._id, x.total])),
+        ultimas:    ultimasCotizaciones,
       },
       facturas: {
-        enSemana: facturasSemana,
-        vigentes: facturasVigentes,
+        enSemana:    facturasSemana,
+        vigentes:    facturasVigentes,
         montoSemana: montoFacturadoSemana[0]?.total ?? 0,
-        ultimas: ultimasFacturas,
+        ultimas:     ultimasFacturas,
       },
       solicitudesCompra: {
-        enSemana: solicitudesSemana,
+        enSemana:   solicitudesSemana,
         porEstatus: Object.fromEntries(solicitudesPorEstatus.map(x => [x._id, x.total])),
       },
     });
   } catch (e) {
     console.error("Error /api/resumen:", e);
+    res.status(500).json({ message: e.message });
+  }
+});
+
+// ════════════════════════════════════════
+// GET /api/resumen/cartera
+// Cartera agrupada por cliente
+// ════════════════════════════════════════
+router.get("/cartera", auth, soloDeveloperYGerencia, async (req, res) => {
+  try {
+    const { default: CuentaCobrar } = await import("../models/CxC.js");
+
+    const cartera = await CuentaCobrar.aggregate([
+      { $match: { estatus: { $in: ["pendiente", "parcial"] } } },
+      {
+        $group: {
+          _id:                "$nombreReceptor",
+          totalFacturado:     { $sum: "$total" },
+          totalCobrado:       { $sum: "$montoPagado" },
+          facturas:           { $sum: 1 },
+          facturasPendientes: { $sum: { $cond: [{ $eq: ["$estatus", "pendiente"] }, 1, 0] } },
+          facturasParciales:  { $sum: { $cond: [{ $eq: ["$estatus", "parcial"]  }, 1, 0] } },
+          ultimaEmision:      { $max: "$fechaEmision" },
+          documentos: {
+            $push: {
+              folioFactura: "$folioFactura",
+              total:        "$total",
+              montoPagado:  "$montoPagado",
+              estatus:      "$estatus",
+              fechaEmision: "$fechaEmision",
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          saldoPendiente: { $subtract: ["$totalFacturado", "$totalCobrado"] },
+        },
+      },
+      { $sort: { saldoPendiente: -1 } },
+    ]);
+
+    const totalCartera = cartera.reduce((a, c) => a + c.saldoPendiente, 0);
+
+    res.json({ totalCartera, clientes: cartera });
+  } catch (e) {
+    console.error("Error /api/resumen/cartera:", e);
     res.status(500).json({ message: e.message });
   }
 });
