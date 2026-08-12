@@ -51,7 +51,7 @@ router.get("/", auth, soloDeveloperYGerencia, async (req, res) => {
         { $sort: { total: -1 } },
         { $limit: 1 },
         { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "u" } },
-        { $unwind: { path: "$u", preserveNullAndEmpty: true } },
+        { $unwind: { path: "$u", preserveNullAndEmptyArrays: true } },
         { $project: { _id: 0, nombre: "$u.nombre", total: 1 } },
       ]),
       Cotizacion.countDocuments({ createdAt: { $gte: hace7 } }),
