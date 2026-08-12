@@ -272,11 +272,12 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
     const efRes = await llamarEF("generarCfdi", body);
 
     if (efRes.AckEnlaceFiscal?.estatusDocumento !== "aceptado") {
-      return res.status(400).json({
-        message: "Error al timbrar",
-        detalle: efRes,
-      });
-    }
+  console.error("EF ERROR:", JSON.stringify(efRes, null, 2));
+  return res.status(400).json({
+    message: efRes?.AckEnlaceFiscal?.descripcionError ?? efRes?.mensaje ?? "Error al timbrar",
+    detalle: efRes,
+  });
+}
 
     const ack = efRes.AckEnlaceFiscal;
 
