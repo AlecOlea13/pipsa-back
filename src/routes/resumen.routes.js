@@ -131,7 +131,7 @@ router.get("/", auth, soloDeveloperYGerencia, async (req, res) => {
 // ════════════════════════════════════════
 router.get("/cartera", auth, soloDeveloperYGerencia, async (req, res) => {
   try {
-    const { default: CuentaCobrar } = await import("../models/CxC.js");
+    const { default: CuentaCobrar } = await import("../models/CuentaCobrar.js");
 
     const cartera = await CuentaCobrar.aggregate([
       { $match: { estatus: { $in: ["pendiente", "parcial"] } } },
