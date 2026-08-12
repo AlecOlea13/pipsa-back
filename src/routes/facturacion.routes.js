@@ -13,6 +13,55 @@ const EF_API_KEY = process.env.EF_API_KEY ?? "";
 
 const puedeFacturar = requireRol("developer", "gerencia", "oficina");
 
+// ── Mapeo de claves SAT → valores que acepta Enlace Fiscal ──
+const REGIMEN_MAP = {
+  "601": "general_ley_personas_morales",
+  "603": "personas_morales_fines_no_lucrativos",
+  "605": "sueldos_salarios",
+  "606": "arrendamiento",
+  "608": "demas_ingresos",
+  "610": "residentes_extranjero",
+  "611": "ingresos_dividendos",
+  "612": "personas_fisicas_actividades_empresariales",
+  "614": "ingresos_intereses",
+  "616": "sin_obligaciones_fiscales",
+  "620": "sociedades_cooperativas",
+  "621": "incorporacion_fiscal",
+  "622": "actividades_agricolas",
+  "623": "opcional_grupos_sociedades",
+  "624": "coordinados",
+  "625": "actividades_empresariales_plataformas",
+  "626": "simplificado_confianza",
+};
+
+const USO_CFDI_MAP = {
+  "G01": "adquisicion_mercancias",
+  "G02": "devolucion_desc_bonif",
+  "G03": "gastos",
+  "I01": "construcciones",
+  "I02": "mobilario",
+  "I03": "equipo_transporte",
+  "I04": "equipo_computo",
+  "I05": "herramientas",
+  "I06": "comunicaciones_telefonicas",
+  "I07": "comunicaciones_satelitales",
+  "I08": "otra_maquinaria",
+  "D01": "gastos_medicos",
+  "D02": "gastos_medicos_incapacidad",
+  "D03": "gastos_funerales",
+  "D04": "donativos",
+  "D05": "intereses_hipotecarios",
+  "D06": "aportaciones_sar",
+  "D07": "primas_seguro_gastos_medicos",
+  "D08": "gastos_transportacion_escolar",
+  "D09": "depositos_ahorro",
+  "D10": "colegiaturas",
+  "P01": "por_definir",
+  "S01": "sin_efectos_fiscales",
+  "CP01": "pagos",
+  "CN01": "nomina",
+};
+
 // ── Helper: llamar a Enlace Fiscal ──
 async function llamarEF(endpoint, body) {
   const credentials = Buffer.from(`${EF_USER}:${EF_TOKEN}`).toString("base64");
@@ -222,8 +271,8 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       CFDi: {
         versionCFDi: "4.0",
         versionEF:   "6.5",
-        modo:        "prueba",
-        // serie,
+        modo:        "debug",
+        serie,
         folioInterno: String(folio),
         fechaEmision: fecha,
         subTotal:     subtotal.toFixed(2),
@@ -242,8 +291,8 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
         Receptor: {
           rfc:           receptor.rfc,
           nombre:        receptor.nombre.toUpperCase(),
-          regimenFiscal: receptor.regimenFiscal ?? "601",
-          usoCfdi:       receptor.usoCfdi ?? "G03",
+          regimenFiscal: REGIMEN_MAP[receptor.regimenFiscal] ?? receptor.regimenFiscal ?? "general_ley_personas_morales",
+          usoCfdi:       USO_CFDI_MAP[receptor.usoCfdi]      ?? receptor.usoCfdi      ?? "gastos",
           DomicilioFiscal: { cp: receptor.cp ?? "45235" },
         },
         Partidas: partidasEF,
@@ -272,12 +321,12 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
     const efRes = await llamarEF("generarCfdi", body);
 
     if (efRes.AckEnlaceFiscal?.estatusDocumento !== "aceptado") {
-  console.error("EF ERROR:", JSON.stringify(efRes, null, 2));
-  return res.status(400).json({
-    message: efRes?.AckEnlaceFiscal?.descripcionError ?? efRes?.mensaje ?? "Error al timbrar",
-    detalle: efRes,
-  });
-}
+      console.error("EF ERROR:", JSON.stringify(efRes, null, 2));
+      return res.status(400).json({
+        message: efRes?.AckEnlaceFiscal?.mensajeError?.descripcionError ?? efRes?.mensaje ?? "Error al timbrar",
+        detalle: efRes,
+      });
+    }
 
     const ack = efRes.AckEnlaceFiscal;
 
@@ -349,7 +398,7 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
       CFDi: {
         versionCFDi: "4.0",
         versionEF:   "6.5",
-        modo:        "prueba",
+        modo:        "debug",
         serie:       "RP",
         folioInterno: folioRep,
         fechaEmision: fecha,
@@ -357,12 +406,12 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
         total:       "0",
         rfc:         EF_RFC,
         exportacion: "01",
-        DatosDePago: { metodoDePago: "PUE", formaDePago: "99" },
+        DatosDePago: { metodoDePago: "PUE", formaDePago: "por_definir" },
         Receptor: {
           rfc:           factura.receptor.rfc,
           nombre:        factura.receptor.nombre,
-          regimenFiscal: factura.receptor.regimenFiscal,
-          usoCfdi:       "CP01",
+          regimenFiscal: REGIMEN_MAP[factura.receptor.regimenFiscal] ?? factura.receptor.regimenFiscal ?? "general_ley_personas_morales",
+          usoCfdi:       "pagos",
           DomicilioFiscal: { cp: factura.receptor.cp },
         },
         Partidas: [{
@@ -415,7 +464,11 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
     const efRes = await llamarEF("generarCfdi", body);
 
     if (efRes.AckEnlaceFiscal?.estatusDocumento !== "aceptado") {
-      return res.status(400).json({ message: "Error al timbrar REP", detalle: efRes });
+      console.error("EF ERROR REP:", JSON.stringify(efRes, null, 2));
+      return res.status(400).json({
+        message: efRes?.AckEnlaceFiscal?.mensajeError?.descripcionError ?? "Error al timbrar REP",
+        detalle: efRes,
+      });
     }
 
     const ack = efRes.AckEnlaceFiscal;
@@ -469,7 +522,7 @@ router.post("/:id/cancelar", auth, puedeFacturar, async (req, res) => {
 
     const body = {
       Cancelacion: {
-        modo:   "prueba",
+        modo:   "debug",
         rfc:    EF_RFC,
         uuid:   factura.uuid,
         motivo,
@@ -481,7 +534,8 @@ router.post("/:id/cancelar", auth, puedeFacturar, async (req, res) => {
     const ack   = efRes.AckEnlaceFiscal;
 
     if (!["aceptado", "solicitud_enviada"].includes(ack?.estatusDocumento)) {
-      return res.status(400).json({ message: "Error al cancelar", detalle: efRes });
+      console.error("EF ERROR CANCELAR:", JSON.stringify(efRes, null, 2));
+      return res.status(400).json({ message: ack?.mensajeError?.descripcionError ?? "Error al cancelar", detalle: efRes });
     }
 
     await Factura.findByIdAndUpdate(req.params.id, { estatus: "cancelada" });
@@ -517,7 +571,7 @@ router.post("/:id/enviar-correo", auth, puedeFacturar, async (req, res) => {
 
     const body = {
       EnviarCFDI: {
-        modo:  "prueba",
+        modo:  "debug",
         rfc:   EF_RFC,
         uuid:  factura.uuid,
         Correos: [email],
