@@ -222,7 +222,7 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       CFDi: {
         versionCFDi: "4.0",
         versionEF:   "6.5",
-        modo:        "produccion",
+        modo:        "prueba",
         serie,
         folioInterno: String(folio),
         fechaEmision: fecha,
@@ -348,7 +348,7 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
       CFDi: {
         versionCFDi: "4.0",
         versionEF:   "6.5",
-        modo:        "produccion",
+        modo:        "prueba",
         serie:       "RP",
         folioInterno: folioRep,
         fechaEmision: fecha,
@@ -468,7 +468,7 @@ router.post("/:id/cancelar", auth, puedeFacturar, async (req, res) => {
 
     const body = {
       Cancelacion: {
-        modo:   "produccion",
+        modo:   "prueba",
         rfc:    EF_RFC,
         uuid:   factura.uuid,
         motivo,
@@ -516,7 +516,7 @@ router.post("/:id/enviar-correo", auth, puedeFacturar, async (req, res) => {
 
     const body = {
       EnviarCFDI: {
-        modo:  "produccion",
+        modo:  "prueba",
         rfc:   EF_RFC,
         uuid:  factura.uuid,
         Correos: [email],
