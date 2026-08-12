@@ -223,7 +223,7 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
         versionCFDi: "4.0",
         versionEF:   "6.5",
         modo:        "prueba",
-        serie,
+        // serie,
         folioInterno: String(folio),
         fechaEmision: fecha,
         subTotal:     subtotal.toFixed(2),
