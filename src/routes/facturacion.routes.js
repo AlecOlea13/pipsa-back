@@ -118,27 +118,20 @@ function calcularTotales(partidas) {
   };
 }
 
-// ── Helper: normalizar régimen y uso CFDI ──
 function normalizarRegimen(valor) {
   if (!valor) return "general_ley_personas_morales";
-  // Extraer clave numérica del formato "(601) Texto..."
   const match = valor.match(/\((\d+)\)/);
   if (match) return REGIMEN_MAP[match[1]] ?? "general_ley_personas_morales";
-  // Si ya es valor texto EF
   if (Object.values(REGIMEN_MAP).includes(valor)) return valor;
-  // Si es clave numérica directa
   if (REGIMEN_MAP[valor]) return REGIMEN_MAP[valor];
   return "general_ley_personas_morales";
 }
 
 function normalizarUsoCfdi(valor) {
   if (!valor) return "gastos";
-  // Extraer clave del formato "(G03) Texto..."
   const match = valor.match(/\(([A-Z0-9]+)\)/);
   if (match) return USO_CFDI_MAP[match[1]] ?? "gastos";
-  // Si ya es valor texto EF
   if (Object.values(USO_CFDI_MAP).includes(valor)) return valor;
-  // Si es clave directa
   if (USO_CFDI_MAP[valor]) return USO_CFDI_MAP[valor];
   return "gastos";
 }
@@ -272,7 +265,6 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       notas, clientePipsaId,
     } = req.body;
 
-    // LOG TEMPORAL
     console.log("RECEPTOR RECIBIDO:", JSON.stringify(receptor, null, 2));
 
     if (!receptor?.rfc || !receptor?.nombre || !partidas?.length) {
@@ -290,8 +282,8 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
 
     const folio = folioInterno ?? `${Date.now()}`;
     const fecha = fechaEmision
-    ? new Date(fechaEmision).toISOString().replace("T", " ").slice(0, 19)
-    : new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19);
+      ? new Date(fechaEmision).toISOString().replace("T", " ").slice(0, 19)
+      : new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19);
 
     const body = {
       CFDi: {
@@ -415,14 +407,12 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
 
     const fecha = fechaPago
       ? new Date(fechaPago).toISOString().replace("T", " ").slice(0, 19)
-      : new Date().toISOString().replace("T", " ").slice(0, 19);
+      : new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19);
 
     const folioRep      = `RPA-${Date.now()}`;
     const monto         = parseFloat(montoPagado.toFixed(2));
     const saldoAnterior = parseFloat((factura.total - factura.totalPagado).toFixed(2));
     const saldoInsoluto = parseFloat(Math.max(0, saldoAnterior - monto).toFixed(2));
-
-    const regimenMapeado = normalizarRegimen(factura.receptor.regimenFiscal);
 
     const body = {
       CFDi: {
@@ -440,7 +430,7 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
         Receptor: {
           rfc:             factura.receptor.rfc,
           nombre:          factura.receptor.nombre,
-          regimenFiscal:   regimenMapeado,
+          regimenFiscal:   "601",
           usoCfdi:         "pagos",
           DomicilioFiscal: { cp: factura.receptor.cp },
         },
@@ -453,41 +443,41 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
           importe:          "0",
           objetoDeImpuesto: "01",
         }],
-        complemento: {
-          Pago20: {
-            Totales: { montoTotalPagos: monto.toFixed(2) },
-            Pagos: [{
-              fechaPago:   fecha,
-              formaDePago: formaPago,
-              moneda:      factura.moneda ?? "MXN",
-              monto:       monto.toFixed(2),
-              ...(referenciaBancaria ? { referenciaBancaria } : {}),
-              DocumentosRelacionados: [{
-                uuid:                 factura.uuid,
-                serie:                factura.serie,
-                folio:                factura.folio.replace(`${factura.serie}-`, ""),
-                moneda:               factura.moneda ?? "MXN",
-                metodoPago:           "PPD",
-                numParcialidad:       String(factura.totalPagado > 0 ? 2 : 1),
-                importeSaldoAnterior: saldoAnterior.toFixed(2),
-                importePagado:        monto.toFixed(2),
-                importeSaldoInsoluto: saldoInsoluto.toFixed(2),
-                objetoDeImpuesto:     "02",
-                Impuestos: {
-                  Traslados: [{
-                    base:       parseFloat((monto / 1.16).toFixed(2)).toFixed(2),
-                    impuesto:   "IVA",
-                    tipoFactor: "tasa",
-                    tasaOCuota: "0.16",
-                    importe:    parseFloat((monto - monto / 1.16).toFixed(2)).toFixed(2),
-                  }],
-                },
-              }],
+        Pago20: {
+          Totales: { montoTotalPagos: monto.toFixed(2) },
+          Pagos: [{
+            fechaPago:   fecha,
+            formaDePago: formaPago,
+            moneda:      factura.moneda ?? "MXN",
+            monto:       monto.toFixed(2),
+            ...(referenciaBancaria ? { referenciaBancaria } : {}),
+            DocumentosRelacionados: [{
+              uuid:                 factura.uuid,
+              serie:                factura.serie,
+              folio:                factura.folio.replace(`${factura.serie}-`, ""),
+              moneda:               factura.moneda ?? "MXN",
+              metodoPago:           "PPD",
+              numParcialidad:       String(factura.totalPagado > 0 ? 2 : 1),
+              importeSaldoAnterior: saldoAnterior.toFixed(2),
+              importePagado:        monto.toFixed(2),
+              importeSaldoInsoluto: saldoInsoluto.toFixed(2),
+              objetoDeImpuesto:     "02",
+              Impuestos: {
+                Traslados: [{
+                  base:       parseFloat((monto / 1.16).toFixed(2)).toFixed(2),
+                  impuesto:   "IVA",
+                  tipoFactor: "tasa",
+                  tasaOCuota: "0.16",
+                  importe:    parseFloat((monto - monto / 1.16).toFixed(2)).toFixed(2),
+                }],
+              },
             }],
-          },
+          }],
         },
       },
     };
+
+    console.log("BODY REP:", JSON.stringify(body, null, 2));
 
     const efRes = await llamarEF("generarCfdi", body);
 
