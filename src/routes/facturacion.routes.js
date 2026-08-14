@@ -249,7 +249,7 @@ router.delete("/productos/:id", auth, requireRol("developer", "gerencia"), async
 router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
   try {
     const {
-      serie = "M", folioInterno, fechaEmision,
+      serie = "MA", folioInterno, fechaEmision,
       receptor, partidas, metodoPago = "PUE", formaPago = "03",
       condicionesPago, fechaVencimiento, moneda = "MXN", tipoCambio,
       notas, clientePipsaId,
