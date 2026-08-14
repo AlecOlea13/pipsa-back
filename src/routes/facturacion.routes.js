@@ -389,7 +389,7 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
       ? new Date(fechaPago).toISOString().replace("T", " ").slice(0, 19)
       : new Date().toISOString().replace("T", " ").slice(0, 19);
 
-    const folioRep = `REP-${Date.now()}`;
+    const folioRep = `RPA-${Date.now()}`;
     const monto    = parseFloat(montoPagado.toFixed(2));
     const saldoAnterior = parseFloat((factura.total - factura.totalPagado).toFixed(2));
     const saldoInsoluto = parseFloat(Math.max(0, saldoAnterior - monto).toFixed(2));
@@ -399,7 +399,7 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
         versionCFDi: "4.0",
         versionEF:   "6.5",
         modo:        "debug",
-        serie:       "RP",
+        serie:       "RPA",
         folioInterno: folioRep,
         fechaEmision: fecha,
         subTotal:    "0",
@@ -481,8 +481,8 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
     });
 
     const rep = await Factura.create({
-      folio:    `RP-${ack.folioInterno}`,
-      serie:    "RP",
+      folio:    `RPA-${ack.folioInterno}`,
+      serie:    "RPA",
       uuid:     ack.folioFiscalUUID,
       tipo:     "rep",
       estatus:  "vigente",
