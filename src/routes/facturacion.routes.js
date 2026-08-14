@@ -290,8 +290,8 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
 
     const folio = folioInterno ?? `${Date.now()}`;
     const fecha = fechaEmision
-      ? new Date(fechaEmision).toISOString().replace("T", " ").slice(0, 19)
-      : new Date().toISOString().replace("T", " ").slice(0, 19);
+    ? new Date(fechaEmision).toISOString().replace("T", " ").slice(0, 19)
+    : new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19);
 
     const body = {
       CFDi: {
