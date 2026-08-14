@@ -317,7 +317,7 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
         Receptor: {
           rfc:             receptor.rfc,
           nombre:          receptor.nombre.toUpperCase(),
-          regimenFiscal:   regimenMapeado,
+          regimenFiscal:   "601",
           usoCfdi:         usoCfdiMapeado,
           DomicilioFiscal: { cp: receptor.cp ?? "45235" },
         },
