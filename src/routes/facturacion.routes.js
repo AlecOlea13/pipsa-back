@@ -443,9 +443,9 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
           importe:          "0",
           objetoDeImpuesto: "01",
         }],
-        Pago20: {
-          Totales: { montoTotalPagos: monto.toFixed(2) },
-          Pagos: [{
+        ComplementoPago: [{
+  Totales: { montoTotalPagos: monto.toFixed(2) },
+          Pago: [{
             fechaPago:   fecha,
             formaDePago: formaPago,
             moneda:      factura.moneda ?? "MXN",
@@ -462,18 +462,17 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
               importePagado:        monto.toFixed(2),
               importeSaldoInsoluto: saldoInsoluto.toFixed(2),
               objetoDeImpuesto:     "02",
-              Impuestos: {
-                Traslados: [{
-                  base:       parseFloat((monto / 1.16).toFixed(2)).toFixed(2),
-                  impuesto:   "IVA",
-                  tipoFactor: "tasa",
-                  tasaOCuota: "0.16",
-                  importe:    parseFloat((monto - monto / 1.16).toFixed(2)).toFixed(2),
-                }],
-              },
+              Impuestos: [{
+                tipo:          "traslado",
+                claveImpuesto: "IVA",
+                tipoFactor:    "tasa",
+                tasaOCuota:    "0.16",
+                importe:       parseFloat((monto - monto / 1.16).toFixed(2)).toFixed(2),
+                baseImpuesto:  parseFloat((monto / 1.16).toFixed(2)).toFixed(2),
+              }],
             }],
           }],
-        },
+        }],
       },
     };
 
