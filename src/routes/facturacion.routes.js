@@ -121,16 +121,24 @@ function calcularTotales(partidas) {
 // ── Helper: normalizar régimen y uso CFDI ──
 function normalizarRegimen(valor) {
   if (!valor) return "general_ley_personas_morales";
-  // Si ya es el valor texto que acepta EF
+  // Extraer clave numérica del formato "(601) Texto..."
+  const match = valor.match(/\((\d+)\)/);
+  if (match) return REGIMEN_MAP[match[1]] ?? "general_ley_personas_morales";
+  // Si ya es valor texto EF
   if (Object.values(REGIMEN_MAP).includes(valor)) return valor;
-  // Si es clave numérica
+  // Si es clave numérica directa
   if (REGIMEN_MAP[valor]) return REGIMEN_MAP[valor];
   return "general_ley_personas_morales";
 }
 
 function normalizarUsoCfdi(valor) {
   if (!valor) return "gastos";
+  // Extraer clave del formato "(G03) Texto..."
+  const match = valor.match(/\(([A-Z0-9]+)\)/);
+  if (match) return USO_CFDI_MAP[match[1]] ?? "gastos";
+  // Si ya es valor texto EF
   if (Object.values(USO_CFDI_MAP).includes(valor)) return valor;
+  // Si es clave directa
   if (USO_CFDI_MAP[valor]) return USO_CFDI_MAP[valor];
   return "gastos";
 }
