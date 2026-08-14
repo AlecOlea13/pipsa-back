@@ -13,7 +13,6 @@ const EF_API_KEY = process.env.EF_API_KEY ?? "";
 
 const puedeFacturar = requireRol("developer", "gerencia", "oficina");
 
-// ── Mapeo de claves SAT → valores que acepta Enlace Fiscal ──
 const REGIMEN_MAP = {
   "601": "general_ley_personas_morales",
   "603": "personas_morales_fines_no_lucrativos",
@@ -62,14 +61,13 @@ const USO_CFDI_MAP = {
   "CN01": "nomina",
 };
 
-// ── Helper: llamar a Enlace Fiscal ──
 async function llamarEF(endpoint, body) {
   const credentials = Buffer.from(`${EF_USER}:${EF_TOKEN}`).toString("base64");
   const res = await fetch(`${EF_URL}/${endpoint}`, {
     method:  "POST",
     headers: {
-      "Content-Type": "application/json",
-      "x-api-key":    EF_API_KEY,
+      "Content-Type":  "application/json",
+      "x-api-key":     EF_API_KEY,
       "Authorization": `Basic ${credentials}`,
     },
     body: JSON.stringify(body),
@@ -77,14 +75,12 @@ async function llamarEF(endpoint, body) {
   return res.json();
 }
 
-// ── Helper: construir partidas con IVA ──
 function construirPartidas(partidas) {
   return partidas.map(p => {
     const importe    = parseFloat((p.cantidad * p.valorUnitario).toFixed(2));
     const descuento  = parseFloat((p.descuento ?? 0).toFixed(2));
     const base       = parseFloat((importe - descuento).toFixed(2));
     const importeIva = parseFloat((base * 0.16).toFixed(2));
-
     return {
       cantidad:         String(p.cantidad),
       claveUnidad:      p.claveUnidad   ?? "E48",
@@ -107,7 +103,6 @@ function construirPartidas(partidas) {
   });
 }
 
-// ── Helper: calcular totales ──
 function calcularTotales(partidas) {
   const subtotal   = partidas.reduce((a, p) => a + p.cantidad * p.valorUnitario, 0);
   const descuentos = partidas.reduce((a, p) => a + (p.descuento ?? 0), 0);
@@ -123,8 +118,25 @@ function calcularTotales(partidas) {
   };
 }
 
+// ── Helper: normalizar régimen y uso CFDI ──
+function normalizarRegimen(valor) {
+  if (!valor) return "general_ley_personas_morales";
+  // Si ya es el valor texto que acepta EF
+  if (Object.values(REGIMEN_MAP).includes(valor)) return valor;
+  // Si es clave numérica
+  if (REGIMEN_MAP[valor]) return REGIMEN_MAP[valor];
+  return "general_ley_personas_morales";
+}
+
+function normalizarUsoCfdi(valor) {
+  if (!valor) return "gastos";
+  if (Object.values(USO_CFDI_MAP).includes(valor)) return valor;
+  if (USO_CFDI_MAP[valor]) return USO_CFDI_MAP[valor];
+  return "gastos";
+}
+
 // ════════════════════════════════════════
-// GET /facturacion — listar facturas
+// GET /facturacion
 // ════════════════════════════════════════
 router.get("/", auth, puedeFacturar, async (req, res) => {
   try {
@@ -155,14 +167,12 @@ router.get("/", auth, puedeFacturar, async (req, res) => {
 });
 
 // ════════════════════════════════════════
-// GET /facturacion/clientes/buscar?q=RFC_O_NOMBRE
-// (DEBE ir antes de /:id)
+// GET /facturacion/clientes/buscar
 // ════════════════════════════════════════
 router.get("/clientes/buscar", auth, puedeFacturar, async (req, res) => {
   try {
     const { q } = req.query;
     if (!q || q.length < 2) return res.json([]);
-
     const Cliente = (await import("../models/Cliente.js")).default;
     const clientes = await Cliente.find({
       $or: [
@@ -188,8 +198,7 @@ router.get("/clientes/buscar", auth, puedeFacturar, async (req, res) => {
 });
 
 // ════════════════════════════════════════
-// GET /facturacion/productos — catálogo propio de productos/servicios fiscales
-// (DEBE ir antes de /:id)
+// GET /facturacion/productos
 // ════════════════════════════════════════
 router.get("/productos", auth, puedeFacturar, async (req, res) => {
   try {
@@ -207,7 +216,7 @@ router.get("/productos", auth, puedeFacturar, async (req, res) => {
 });
 
 // ════════════════════════════════════════
-// POST /facturacion/productos — crear producto en catálogo
+// POST /facturacion/productos
 // ════════════════════════════════════════
 router.post("/productos", auth, requireRol("developer", "gerencia"), async (req, res) => {
   try {
@@ -223,7 +232,7 @@ router.post("/productos", auth, requireRol("developer", "gerencia"), async (req,
 });
 
 // ════════════════════════════════════════
-// PUT /facturacion/productos/:id — editar producto
+// PUT /facturacion/productos/:id
 // ════════════════════════════════════════
 router.put("/productos/:id", auth, requireRol("developer", "gerencia"), async (req, res) => {
   try {
@@ -234,7 +243,7 @@ router.put("/productos/:id", auth, requireRol("developer", "gerencia"), async (r
 });
 
 // ════════════════════════════════════════
-// DELETE /facturacion/productos/:id — desactivar producto
+// DELETE /facturacion/productos/:id
 // ════════════════════════════════════════
 router.delete("/productos/:id", auth, requireRol("developer", "gerencia"), async (req, res) => {
   try {
@@ -244,7 +253,7 @@ router.delete("/productos/:id", auth, requireRol("developer", "gerencia"), async
 });
 
 // ════════════════════════════════════════
-// POST /facturacion/timbrar — nueva factura
+// POST /facturacion/timbrar
 // ════════════════════════════════════════
 router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
   try {
@@ -255,9 +264,18 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       notas, clientePipsaId,
     } = req.body;
 
+    // LOG TEMPORAL
+    console.log("RECEPTOR RECIBIDO:", JSON.stringify(receptor, null, 2));
+
     if (!receptor?.rfc || !receptor?.nombre || !partidas?.length) {
       return res.status(400).json({ message: "Faltan datos obligatorios: receptor y partidas" });
     }
+
+    const regimenMapeado = normalizarRegimen(receptor.regimenFiscal);
+    const usoCfdiMapeado = normalizarUsoCfdi(receptor.usoCfdi);
+
+    console.log("REGIMEN MAPEADO:", regimenMapeado);
+    console.log("USO CFDI MAPEADO:", usoCfdiMapeado);
 
     const { subtotal, descuentos, base, iva, total } = calcularTotales(partidas);
     const partidasEF = construirPartidas(partidas);
@@ -269,9 +287,9 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
 
     const body = {
       CFDi: {
-        versionCFDi: "4.0",
-        versionEF:   "6.5",
-        modo:        "debug",
+        versionCFDi:  "4.0",
+        versionEF:    "6.5",
+        modo:         "debug",
         serie,
         folioInterno: String(folio),
         fechaEmision: fecha,
@@ -289,10 +307,10 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
           ...(fechaVencimiento ? { fechaVencimiento } : {}),
         },
         Receptor: {
-          rfc:           receptor.rfc,
-          nombre:        receptor.nombre.toUpperCase(),
-          regimenFiscal: REGIMEN_MAP[receptor.regimenFiscal] ?? receptor.regimenFiscal ?? "general_ley_personas_morales",
-          usoCfdi:       USO_CFDI_MAP[receptor.usoCfdi]      ?? receptor.usoCfdi      ?? "gastos",
+          rfc:             receptor.rfc,
+          nombre:          receptor.nombre.toUpperCase(),
+          regimenFiscal:   regimenMapeado,
+          usoCfdi:         usoCfdiMapeado,
           DomicilioFiscal: { cp: receptor.cp ?? "45235" },
         },
         Partidas: partidasEF,
@@ -318,6 +336,8 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       },
     };
 
+    console.log("BODY EF:", JSON.stringify(body, null, 2));
+
     const efRes = await llamarEF("generarCfdi", body);
 
     if (efRes.AckEnlaceFiscal?.estatusDocumento !== "aceptado") {
@@ -331,18 +351,18 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
     const ack = efRes.AckEnlaceFiscal;
 
     const factura = await Factura.create({
-      folio:        `${serie}-${ack.folioInterno}`,
+      folio:           `${serie}-${ack.folioInterno}`,
       serie,
-      uuid:         ack.folioFiscalUUID,
-      tipo:         "factura",
-      estatus:      "vigente",
-      estatusPago:  "sin_pago",
+      uuid:            ack.folioFiscalUUID,
+      tipo:            "factura",
+      estatus:         "vigente",
+      estatusPago:     "sin_pago",
       moneda,
-      tipoCambio:   tipoCambio ?? null,
+      tipoCambio:      tipoCambio ?? null,
       subtotal,
       descuentos,
       total,
-      totalPagado:  0,
+      totalPagado:     0,
       receptor: {
         rfc:           receptor.rfc,
         nombre:        receptor.nombre.toUpperCase(),
@@ -352,12 +372,12 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       },
       metodoPago,
       formaPago,
-      condicionesPago: condicionesPago ?? "",
-      fechaEmision:    new Date(fecha),
-      fechaVencimiento:fechaVencimiento ? new Date(fechaVencimiento) : null,
+      condicionesPago:  condicionesPago ?? "",
+      fechaEmision:     new Date(fecha),
+      fechaVencimiento: fechaVencimiento ? new Date(fechaVencimiento) : null,
       partidas,
-      urlPdf:  ack.descargaArchivoPDF  ?? null,
-      urlXml:  ack.descargaXmlCFDi    ?? null,
+      urlPdf:  ack.descargaArchivoPDF ?? null,
+      urlXml:  ack.descargaXmlCFDi   ?? null,
       urlQr:   ack.descargaArchivoQR  ?? null,
       notas:   notas ?? "",
       clientePipsa: clientePipsaId ?? null,
@@ -372,7 +392,7 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
 });
 
 // ════════════════════════════════════════
-// POST /facturacion/rep — recibo electrónico de pago
+// POST /facturacion/rep
 // ════════════════════════════════════════
 router.post("/rep", auth, puedeFacturar, async (req, res) => {
   try {
@@ -389,29 +409,31 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
       ? new Date(fechaPago).toISOString().replace("T", " ").slice(0, 19)
       : new Date().toISOString().replace("T", " ").slice(0, 19);
 
-    const folioRep = `RPA-${Date.now()}`;
-    const monto    = parseFloat(montoPagado.toFixed(2));
+    const folioRep      = `RPA-${Date.now()}`;
+    const monto         = parseFloat(montoPagado.toFixed(2));
     const saldoAnterior = parseFloat((factura.total - factura.totalPagado).toFixed(2));
     const saldoInsoluto = parseFloat(Math.max(0, saldoAnterior - monto).toFixed(2));
 
+    const regimenMapeado = normalizarRegimen(factura.receptor.regimenFiscal);
+
     const body = {
       CFDi: {
-        versionCFDi: "4.0",
-        versionEF:   "6.5",
-        modo:        "debug",
-        serie:       "RPA",
+        versionCFDi:  "4.0",
+        versionEF:    "6.5",
+        modo:         "debug",
+        serie:        "RPA",
         folioInterno: folioRep,
         fechaEmision: fecha,
-        subTotal:    "0",
-        total:       "0",
-        rfc:         EF_RFC,
-        exportacion: "01",
-        DatosDePago: { metodoDePago: "PUE", formaDePago: "por_definir" },
+        subTotal:     "0",
+        total:        "0",
+        rfc:          EF_RFC,
+        exportacion:  "01",
+        DatosDePago:  { metodoDePago: "PUE", formaDePago: "por_definir" },
         Receptor: {
-          rfc:           factura.receptor.rfc,
-          nombre:        factura.receptor.nombre,
-          regimenFiscal: REGIMEN_MAP[factura.receptor.regimenFiscal] ?? factura.receptor.regimenFiscal ?? "general_ley_personas_morales",
-          usoCfdi:       "pagos",
+          rfc:             factura.receptor.rfc,
+          nombre:          factura.receptor.nombre,
+          regimenFiscal:   regimenMapeado,
+          usoCfdi:         "pagos",
           DomicilioFiscal: { cp: factura.receptor.cp },
         },
         Partidas: [{
@@ -425,9 +447,7 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
         }],
         Complemento: {
           Pago20: {
-            Totales: {
-              montoTotalPagos: monto.toFixed(2),
-            },
+            Totales: { montoTotalPagos: monto.toFixed(2) },
             Pagos: [{
               fechaPago:   fecha,
               formaDePago: formaPago,
@@ -435,23 +455,23 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
               monto:       monto.toFixed(2),
               ...(referenciaBancaria ? { referenciaBancaria } : {}),
               DocumentosRelacionados: [{
-                uuid:              factura.uuid,
-                serie:             factura.serie,
-                folio:             factura.folio.replace(`${factura.serie}-`, ""),
-                moneda:            factura.moneda ?? "MXN",
-                metodoPago:        "PPD",
-                numParcialidad:    String(factura.totalPagado > 0 ? 2 : 1),
+                uuid:                 factura.uuid,
+                serie:                factura.serie,
+                folio:                factura.folio.replace(`${factura.serie}-`, ""),
+                moneda:               factura.moneda ?? "MXN",
+                metodoPago:           "PPD",
+                numParcialidad:       String(factura.totalPagado > 0 ? 2 : 1),
                 importeSaldoAnterior: saldoAnterior.toFixed(2),
-                importePagado:     monto.toFixed(2),
+                importePagado:        monto.toFixed(2),
                 importeSaldoInsoluto: saldoInsoluto.toFixed(2),
-                objetoDeImpuesto:  "02",
+                objetoDeImpuesto:     "02",
                 Impuestos: {
                   Traslados: [{
-                    base:          parseFloat((monto / 1.16).toFixed(2)).toFixed(2),
-                    impuesto:      "IVA",
-                    tipoFactor:    "tasa",
-                    tasaOCuota:    "0.16",
-                    importe:       parseFloat((monto - monto / 1.16).toFixed(2)).toFixed(2),
+                    base:       parseFloat((monto / 1.16).toFixed(2)).toFixed(2),
+                    impuesto:   "IVA",
+                    tipoFactor: "tasa",
+                    tasaOCuota: "0.16",
+                    importe:    parseFloat((monto - monto / 1.16).toFixed(2)).toFixed(2),
                   }],
                 },
               }],
@@ -474,30 +494,30 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
     const ack = efRes.AckEnlaceFiscal;
 
     const nuevoTotalPagado = parseFloat((factura.totalPagado + monto).toFixed(2));
-    const nuevoEstatus = nuevoTotalPagado >= factura.total ? "pagada" : "parcial";
+    const nuevoEstatus     = nuevoTotalPagado >= factura.total ? "pagada" : "parcial";
     await Factura.findByIdAndUpdate(facturaId, {
       totalPagado: nuevoTotalPagado,
       estatusPago: nuevoEstatus,
     });
 
     const rep = await Factura.create({
-      folio:    `RPA-${ack.folioInterno}`,
-      serie:    "RPA",
-      uuid:     ack.folioFiscalUUID,
-      tipo:     "rep",
-      estatus:  "vigente",
-      moneda:   factura.moneda ?? "MXN",
-      subtotal: 0,
-      total:    monto,
+      folio:       `RPA-${ack.folioInterno}`,
+      serie:       "RPA",
+      uuid:        ack.folioFiscalUUID,
+      tipo:        "rep",
+      estatus:     "vigente",
+      moneda:      factura.moneda ?? "MXN",
+      subtotal:    0,
+      total:       monto,
       totalPagado: monto,
-      receptor: factura.receptor,
-      metodoPago: "PUE",
+      receptor:    factura.receptor,
+      metodoPago:  "PUE",
       formaPago,
-      fechaEmision: new Date(fecha),
-      urlPdf:   ack.descargaArchivoPDF ?? null,
-      urlXml:   ack.descargaXmlCFDi   ?? null,
-      urlQr:    ack.descargaArchivoQR  ?? null,
-      notas:    notas ?? "",
+      fechaEmision:       new Date(fecha),
+      urlPdf:             ack.descargaArchivoPDF ?? null,
+      urlXml:             ack.descargaXmlCFDi   ?? null,
+      urlQr:              ack.descargaArchivoQR  ?? null,
+      notas:              notas ?? "",
       facturaRelacionada: facturaId,
       clientePipsa:       factura.clientePipsa,
       creadoPor:          req.userId,
@@ -547,7 +567,7 @@ router.post("/:id/cancelar", auth, puedeFacturar, async (req, res) => {
 });
 
 // ════════════════════════════════════════
-// GET /facturacion/:id — detalle de una factura
+// GET /facturacion/:id
 // ════════════════════════════════════════
 router.get("/:id", auth, puedeFacturar, async (req, res) => {
   try {
@@ -571,9 +591,9 @@ router.post("/:id/enviar-correo", auth, puedeFacturar, async (req, res) => {
 
     const body = {
       EnviarCFDI: {
-        modo:  "debug",
-        rfc:   EF_RFC,
-        uuid:  factura.uuid,
+        modo:    "debug",
+        rfc:     EF_RFC,
+        uuid:    factura.uuid,
         Correos: [email],
       },
     };
