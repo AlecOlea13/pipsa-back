@@ -453,7 +453,7 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
           importe:          "0",
           objetoDeImpuesto: "01",
         }],
-        Complemento: {
+        complemento: {
           Pago20: {
             Totales: { montoTotalPagos: monto.toFixed(2) },
             Pagos: [{
