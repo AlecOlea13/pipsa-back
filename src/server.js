@@ -26,6 +26,7 @@ import proveedorRoutes from "./routes/proveedor.routes.js";
 import portalRoutes from "./routes/portal.routes.js";
 import vehiculoRoutes from "./routes/vehiculo.routes.js";
 import valeRoutes from "./routes/vale.routes.js";
+import valeTornoRoutes from "./routes/valeTorno.routes.js";
 import solicitudCompraRoutes from "./routes/solicitudCompra.routes.js";
 import resumenRoutes from "./routes/resumen.routes.js";
 
@@ -68,6 +69,7 @@ app.use("/api/proveedores", proveedorRoutes);
 app.use("/api/portales", portalRoutes);
 app.use("/api/vehiculos", vehiculoRoutes);
 app.use("/api/vales-salida", valeRoutes);
+app.use("/api/vales-torno", valeTornoRoutes);
 app.use("/api/solicitudes-compra", solicitudCompraRoutes);
 app.use("/api/resumen", resumenRoutes);
 
