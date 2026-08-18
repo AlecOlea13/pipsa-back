@@ -415,19 +415,23 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
     const saldoInsoluto = parseFloat(Math.max(0, saldoAnterior - monto).toFixed(2));
     const base          = parseFloat((monto / 1.16).toFixed(2));
     const importeIva    = parseFloat((monto - base).toFixed(2));
+    const folioNumerico = Date.now() % 1000000; // número entero
 
-    const body = {
+const body = {
   CFDi: {
     versionCFDi:  "4.0",
     versionEF:    "6.5",
     modo:         "debug",
     serie:        "RPA",
-    folioInterno: folioRep,
+    folioInterno: folioNumerico,
     fechaEmision: fecha,
+    subTotal:     "0",
+    total:        "0",
     rfc:          EF_RFC,
+    exportacion:  "01",
     DatosDePago: {
       metodoDePago: "PUE",
-      formaDePago:  "por_definir",
+      formaDePago:  "99",
     },
     Receptor: {
       rfc:             factura.receptor.rfc,
@@ -436,6 +440,15 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
       usoCfdi:         "pagos",
       DomicilioFiscal: { cp: factura.receptor.cp },
     },
+    Partidas: [{
+      cantidad:         "1",
+      claveUnidad:      "ACT",
+      claveProdServ:    "84111506",
+      descripcion:      "Pago",
+      valorUnitario:    "0",
+      importe:          "0",
+      objetoDeImpuesto: "01",
+    }],
     ComplementoPago: [{
       Totales: {
         montoTotalPagos:        monto.toFixed(2),
