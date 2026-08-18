@@ -413,6 +413,8 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
     const monto         = parseFloat(montoPagado.toFixed(2));
     const saldoAnterior = parseFloat((factura.total - factura.totalPagado).toFixed(2));
     const saldoInsoluto = parseFloat(Math.max(0, saldoAnterior - monto).toFixed(2));
+    const base          = parseFloat((monto / 1.16).toFixed(2));
+    const importeIva    = parseFloat((monto - base).toFixed(2));
 
     const body = {
       CFDi: {
