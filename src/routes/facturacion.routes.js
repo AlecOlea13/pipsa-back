@@ -417,62 +417,62 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
     const importeIva    = parseFloat((monto - base).toFixed(2));
     const folioNumerico = Date.now() % 1000000; // número entero
 
-const body = {
-  CFDi: {
-    versionCFDi:  "4.0",
-    versionEF:    "6.5",
-    modo:         "debug",
-    serie:        "RPA",
-    folioInterno: folioNumerico,
-    fechaEmision: fecha,
-    subTotal:     "0",
-    total:        "0",
-    rfc:          EF_RFC,
-    exportacion:  "01",
-    DatosDePago: {
-      metodoDePago: "PUE",
-      formaDePago:  "99",
-    },
-    Receptor: {
-      rfc:             factura.receptor.rfc,
-      nombre:          factura.receptor.nombre,
-      regimenFiscal:   "601",
-      usoCfdi:         "pagos",
-      DomicilioFiscal: { cp: factura.receptor.cp },
-    },
-    Partidas: [{
-      cantidad:         "1",
-      claveUnidad:      "ACT",
-      claveProdServ:    "84111506",
-      descripcion:      "Pago",
-      valorUnitario:    "0",
-      importe:          "0",
-      objetoDeImpuesto: "01",
-    }],
-    ComplementoPago: [{
-      Totales: {
-        montoTotalPagos:        monto.toFixed(2),
-        trasladosBaseIVA16:     base.toFixed(2),
-        trasladosImpuestoIVA16: importeIva.toFixed(2),
+  const body = {
+    CFDi: {
+      versionCFDi:  "4.0",
+      versionEF:    "6.5",
+      modo:         "debug",
+      serie:        "RPA",
+      folioInterno: folioNumerico,
+      fechaEmision: fecha,
+      subTotal:     "0",
+      total:        "0",
+      rfc:          EF_RFC,
+      exportacion:  "01",
+      DatosDePago: {
+        metodoDePago: "PUE",
+        formaDePago:  "99",
       },
-      Pago: [{
-        fechaPago:   fecha,
-        formaDePago: formaPago,
-        tipoMoneda:  factura.moneda ?? "MXN",
-        tipoCambio:  "1",
-        monto:       monto.toFixed(2),
-        ...(referenciaBancaria ? { numeroOperacion: referenciaBancaria } : {}),
-        DocumentosRelacionados: [{
-          idDocumento:       factura.uuid,
-          serie:             factura.serie,
-          folioInterno:      factura.folio.replace(`${factura.serie}-`, ""),
-          tipoMoneda:        factura.moneda ?? "MXN",
-          equivalencia:      "1",
-          numParcialidad:    String(factura.totalPagado > 0 ? 2 : 1),
-          saldoAnterior:     saldoAnterior.toFixed(2),
-          importePagado:     monto.toFixed(2),
-          impoSaldoInsoluto: saldoInsoluto.toFixed(2),
-          objetoDeImpuesto:  "02",
+      Receptor: {
+        rfc:             factura.receptor.rfc,
+        nombre:          factura.receptor.nombre,
+        regimenFiscal:   "601",
+        usoCfdi:         "pagos",
+        DomicilioFiscal: { cp: factura.receptor.cp },
+      },
+      ComplementoPago: [{
+        Totales: {
+          montoTotalPagos:        monto.toFixed(2),
+          trasladosBaseIVA16:     base.toFixed(2),
+          trasladosImpuestoIVA16: importeIva.toFixed(2),
+        },
+        Pago: [{
+          fechaPago:   fecha,
+          formaDePago: formaPago,
+          tipoMoneda:  factura.moneda ?? "MXN",
+          tipoCambio:  "1",
+          monto:       monto.toFixed(2),
+          ...(referenciaBancaria ? { numeroOperacion: referenciaBancaria } : {}),
+          DocumentosRelacionados: [{
+            idDocumento:       factura.uuid,
+            serie:             factura.serie,
+            folioInterno:      factura.folio.replace(`${factura.serie}-`, ""),
+            tipoMoneda:        factura.moneda ?? "MXN",
+            equivalencia:      "1",
+            numParcialidad:    String(factura.totalPagado > 0 ? 2 : 1),
+            saldoAnterior:     saldoAnterior.toFixed(2),
+            importePagado:     monto.toFixed(2),
+            impoSaldoInsoluto: saldoInsoluto.toFixed(2),
+            objetoDeImpuesto:  "02",
+            Impuestos: [{
+              tipo:          "traslado",
+              claveImpuesto: "IVA",
+              tipoFactor:    "tasa",
+              tasaOCuota:    "0.16",
+              importe:       importeIva.toFixed(2),
+              baseImpuesto:  base.toFixed(2),
+            }],
+          }],
           Impuestos: [{
             tipo:          "traslado",
             claveImpuesto: "IVA",
@@ -482,18 +482,18 @@ const body = {
             baseImpuesto:  base.toFixed(2),
           }],
         }],
-        Impuestos: [{
-          tipo:          "traslado",
-          claveImpuesto: "IVA",
-          tipoFactor:    "tasa",
-          tasaOCuota:    "0.16",
-          importe:       importeIva.toFixed(2),
-          baseImpuesto:  base.toFixed(2),
-        }],
       }],
-    }],
-  },
-};
+      Partidas: [{
+        cantidad:         "1",
+        claveUnidad:      "ACT",
+        claveProdServ:    "84111506",
+        descripcion:      "Pago",
+        valorUnitario:    "0",
+        importe:          "0",
+        objetoDeImpuesto: "01",
+      }],
+    },
+  };
 
     console.log("BODY REP:", JSON.stringify(body, null, 2));
 
