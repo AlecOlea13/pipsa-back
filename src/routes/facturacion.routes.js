@@ -428,7 +428,7 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
         total:        "0",
         rfc:          EF_RFC,
         exportacion:  "01",
-        DatosDePago:  { metodoDePago: "PUE", formaDePago: "por_definir" },
+        // DatosDePago:  { metodoDePago: "PUE", formaDePago: "por_definir" },
         Receptor: {
           rfc:             factura.receptor.rfc,
           nombre:          factura.receptor.nombre,
