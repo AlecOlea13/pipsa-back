@@ -424,11 +424,7 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
         serie:        "RPA",
         folioInterno: folioRep,
         fechaEmision: fecha,
-        subTotal:     "0",
-        total:        "0",
         rfc:          EF_RFC,
-        exportacion:  "01",
-        DatosDePago:  { metodoDePago: "PUE", formaDePago: "por_definir" },
         Receptor: {
           rfc:             factura.receptor.rfc,
           nombre:          factura.receptor.nombre,
@@ -436,15 +432,6 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
           usoCfdi:         "pagos",
           DomicilioFiscal: { cp: factura.receptor.cp },
         },
-        Partidas: [{
-          cantidad:         "1",
-          claveUnidad:      "ACT",
-          claveProdServ:    "84111506",
-          descripcion:      "Pago",
-          valorUnitario:    "0",
-          importe:          "0",
-          objetoDeImpuesto: "01",
-        }],
         ComplementoPago: [{
           Totales: {
             montoTotalPagos:        monto.toFixed(2),
