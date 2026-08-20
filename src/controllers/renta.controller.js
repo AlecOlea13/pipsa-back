@@ -53,8 +53,39 @@ export async function updateRenta(req, res) {
     if (body.asesor?._id) body.asesor = body.asesor._id;
     if (!body.asesor) delete body.asesor;
 
+    const rentaAnterior = await Renta.findById(req.params.id);
+    if (!rentaAnterior) return res.status(404).json({ message: "Renta no encontrada" });
+
     const renta = await Renta.findByIdAndUpdate(req.params.id, body, { new: true });
-    if (!renta) return res.status(404).json({ message: "Renta no encontrada" });
+
+    // ── Sincronizar montacargas si el estatus cambió a terminada ──
+    if (body.estatus === "terminada" && rentaAnterior.estatus !== "terminada") {
+      await Montacargas.findByIdAndUpdate(renta.montacargas, {
+        clienteActual: null,
+        estatus: "disponible",
+      });
+    }
+
+    // ── Sincronizar montacargas si el estatus cambió de terminada a activa ──
+    if (body.estatus === "activa" && rentaAnterior.estatus === "terminada") {
+      await Montacargas.findByIdAndUpdate(renta.montacargas, {
+        clienteActual: renta.cliente,
+        estatus: "rentado",
+      });
+    }
+
+    // ── Si cambió el montacargas de la renta, liberar el anterior y ocupar el nuevo ──
+    if (body.montacargas && String(body.montacargas) !== String(rentaAnterior.montacargas) && renta.estatus === "activa") {
+      await Montacargas.findByIdAndUpdate(rentaAnterior.montacargas, {
+        clienteActual: null,
+        estatus: "disponible",
+      });
+      await Montacargas.findByIdAndUpdate(renta.montacargas, {
+        clienteActual: renta.cliente,
+        estatus: "rentado",
+      });
+    }
+
     res.json(renta);
   } catch (e) {
     console.error("updateRenta error:", e.message);
@@ -108,6 +139,12 @@ export async function renovarRenta(req, res) {
     renta.precioMensual = renovacion.precioMensualNuevo;
     renta.estatus       = "activa";
     await renta.save();
+
+    // ── Asegurar que el montacargas quede sincronizado como rentado ──
+    await Montacargas.findByIdAndUpdate(renta.montacargas, {
+      clienteActual: renta.cliente,
+      estatus: "rentado",
+    });
 
     await renta.populate([
       { path: "cliente", select: "nombre" },

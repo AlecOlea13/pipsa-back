@@ -276,3 +276,17 @@ export async function cerrarServicio(req, res) {
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
+
+export async function getServiciosPorMontacargas(req, res) {
+  try {
+    const servicios = await Servicio.find({ montacargas: req.params.montacargasId })
+      .populate("cliente", "nombre")
+      .populate("tipoServicio", "nombre")
+      .populate("tecnicoAsignado", "nombre")
+      .select("folio estatus fechaReporte problema notasCierre horometro horometroCierre horaInicio horaFin cliente tipoServicio tecnicoAsignado")
+      .sort({ createdAt: -1 });
+    res.json(servicios);
+  } catch (e) {
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+}
