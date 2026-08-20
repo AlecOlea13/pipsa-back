@@ -75,6 +75,21 @@ async function llamarEF(endpoint, body) {
   return res.json();
 }
 
+// ── Helper específico para REP: usa el endpoint dedicado ──
+async function llamarEFRep(body) {
+  const credentials = Buffer.from(`${EF_USER}:${EF_TOKEN}`).toString("base64");
+  const res = await fetch("https://api.enlacefiscal.com/v6/generarReciboElectronicoPago", {
+    method:  "POST",
+    headers: {
+      "Content-Type":  "application/json",
+      "x-api-key":     EF_API_KEY,
+      "Authorization": `Basic ${credentials}`,
+    },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
 function construirPartidas(partidas) {
   return partidas.map(p => {
     const importe    = parseFloat((p.cantidad * p.valorUnitario).toFixed(2));
@@ -409,61 +424,63 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
       ? new Date(fechaPago).toISOString().replace("T", " ").slice(0, 19)
       : new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19);
 
-    const folioRep      = `RPA-${Date.now()}`;
-    const monto         = parseFloat(montoPagado.toFixed(2));
-    const saldoAnterior = parseFloat((factura.total - factura.totalPagado).toFixed(2));
-    const saldoInsoluto = parseFloat(Math.max(0, saldoAnterior - monto).toFixed(2));
-    const base          = parseFloat((monto / 1.16).toFixed(2));
-    const importeIva    = parseFloat((monto - base).toFixed(2));
-    const folioNumerico = Date.now() % 1000000; // número entero
+    const folioRep       = `RPA-${Date.now()}`;
+    const folioNumerico  = Date.now() % 1000000;
+    const monto          = parseFloat(montoPagado.toFixed(2));
+    const saldoAnterior  = parseFloat((factura.total - factura.totalPagado).toFixed(2));
+    const saldoInsoluto  = parseFloat(Math.max(0, saldoAnterior - monto).toFixed(2));
+    const base           = parseFloat((monto / 1.16).toFixed(2));
+    const importeIva     = parseFloat((monto - base).toFixed(2));
 
-  const body = {
-    CFDi: {
-      versionCFDi:  "4.0",
-      versionEF:    "6.5",
-      modo:         "debug",
-      serie:        "RPA",
-      folioInterno: folioNumerico,
-      fechaEmision: fecha,
-      subTotal:     "0",
-      total:        "0",
-      rfc:          EF_RFC,
-      exportacion:  "01",
-      DatosDePago: {
-        metodoDePago: "PUE",
-        formaDePago:  "99",
-      },
-      Receptor: {
-        rfc:             factura.receptor.rfc,
-        nombre:          factura.receptor.nombre,
-        regimenFiscal:   "601",
-        usoCfdi:         "pagos",
-        DomicilioFiscal: { cp: factura.receptor.cp },
-      },
-      ComplementoPago: [{
-        Totales: {
-          montoTotalPagos:        monto.toFixed(2),
-          trasladosBaseIVA16:     base.toFixed(2),
-          trasladosImpuestoIVA16: importeIva.toFixed(2),
+    const body = {
+      CFDi: {
+        versionCFDi:  "4.0",
+        versionEF:    "6.5",
+        modo:         "debug",
+        serie:        "RPA",
+        folioInterno: folioNumerico,
+        fechaEmision: fecha,
+        rfc:          EF_RFC,
+        Receptor: {
+          rfc:             factura.receptor.rfc,
+          nombre:          factura.receptor.nombre,
+          regimenFiscal:   "601",
+          usoCfdi:         "pagos",
+          DomicilioFiscal: { cp: factura.receptor.cp },
         },
-        Pago: [{
-          fechaPago:   fecha,
-          formaDePago: formaPago,
-          tipoMoneda:  factura.moneda ?? "MXN",
-          tipoCambio:  "1",
-          monto:       monto.toFixed(2),
-          ...(referenciaBancaria ? { numeroOperacion: referenciaBancaria } : {}),
-          DocumentosRelacionados: [{
-            idDocumento:       factura.uuid,
-            serie:             factura.serie,
-            folioInterno:      factura.folio.replace(`${factura.serie}-`, ""),
-            tipoMoneda:        factura.moneda ?? "MXN",
-            equivalencia:      "1",
-            numParcialidad:    String(factura.totalPagado > 0 ? 2 : 1),
-            saldoAnterior:     saldoAnterior.toFixed(2),
-            importePagado:     monto.toFixed(2),
-            impoSaldoInsoluto: saldoInsoluto.toFixed(2),
-            objetoDeImpuesto:  "02",
+        ComplementoPago: [{
+          Totales: {
+            montoTotalPagos:        monto.toFixed(2),
+            trasladosBaseIVA16:     base.toFixed(2),
+            trasladosImpuestoIVA16: importeIva.toFixed(2),
+          },
+          Pago: [{
+            fechaPago:   fecha,
+            formaDePago: formaPago,
+            tipoMoneda:  factura.moneda ?? "MXN",
+            tipoCambio:  "1",
+            monto:       monto.toFixed(2),
+            ...(referenciaBancaria ? { numeroOperacion: referenciaBancaria } : {}),
+            DocumentosRelacionados: [{
+              idDocumento:       factura.uuid,
+              serie:             factura.serie,
+              folioInterno:      factura.folio.replace(`${factura.serie}-`, ""),
+              tipoMoneda:        factura.moneda ?? "MXN",
+              equivalencia:      "1",
+              numParcialidad:    String(factura.totalPagado > 0 ? 2 : 1),
+              saldoAnterior:     saldoAnterior.toFixed(2),
+              importePagado:     monto.toFixed(2),
+              impoSaldoInsoluto: saldoInsoluto.toFixed(2),
+              objetoDeImpuesto:  "02",
+              Impuestos: [{
+                tipo:          "traslado",
+                claveImpuesto: "IVA",
+                tipoFactor:    "tasa",
+                tasaOCuota:    "0.16",
+                importe:       importeIva.toFixed(2),
+                baseImpuesto:  base.toFixed(2),
+              }],
+            }],
             Impuestos: [{
               tipo:          "traslado",
               claveImpuesto: "IVA",
@@ -473,31 +490,13 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
               baseImpuesto:  base.toFixed(2),
             }],
           }],
-          Impuestos: [{
-            tipo:          "traslado",
-            claveImpuesto: "IVA",
-            tipoFactor:    "tasa",
-            tasaOCuota:    "0.16",
-            importe:       importeIva.toFixed(2),
-            baseImpuesto:  base.toFixed(2),
-          }],
         }],
-      }],
-      Partidas: [{
-        cantidad:         "1",
-        claveUnidad:      "ACT",
-        claveProdServ:    "84111506",
-        descripcion:      "Pago",
-        valorUnitario:    "0",
-        importe:          "0",
-        objetoDeImpuesto: "01",
-      }],
-    },
-  };
+      },
+    };
 
     console.log("BODY REP:", JSON.stringify(body, null, 2));
 
-    const efRes = await llamarEF("generarCfdi", body);
+    const efRes = await llamarEFRep(body);
 
     if (efRes.AckEnlaceFiscal?.estatusDocumento !== "aceptado") {
       console.error("EF ERROR REP:", JSON.stringify(efRes, null, 2));
