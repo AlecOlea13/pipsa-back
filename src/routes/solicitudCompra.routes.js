@@ -97,6 +97,27 @@ router.post("/:id/cancelar", auth, puedeLiberar, async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
 
+router.put("/:id", auth, puedeCrear, async (req, res) => {
+  try {
+    const sol = await SolicitudCompra.findById(req.params.id);
+    if (!sol) return res.status(404).json({ message: "No encontrada" });
+    if (sol.estatus !== "sin_liberar") {
+      return res.status(400).json({ message: "Solo se pueden editar solicitudes sin liberar" });
+    }
+
+    const { items, notas, cotizacionId, moneda } = req.body;
+    if (!items?.length) return res.status(400).json({ message: "Agrega al menos un artículo" });
+
+    sol.items      = items;
+    sol.notas      = notas || "";
+    sol.cotizacion = cotizacionId || null;
+    sol.moneda     = moneda || sol.moneda || "MXN";
+    await sol.save();
+    await sol.populate(POPULATE);
+    res.json(sol);
+  } catch (e) { res.status(500).json({ message: e.message }); }
+});
+
 router.delete("/:id", auth, requireRol("developer"), async (req, res) => {
   try {
     await SolicitudCompra.findByIdAndDelete(req.params.id);
