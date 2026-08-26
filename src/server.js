@@ -29,6 +29,7 @@ import valeRoutes from "./routes/vale.routes.js";
 import valeTornoRoutes from "./routes/valeTorno.routes.js";
 import solicitudCompraRoutes from "./routes/solicitudCompra.routes.js";
 import resumenRoutes from "./routes/resumen.routes.js";
+import encuestaRoutes from "./routes/encuesta.routes.js";
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 dns.setDefaultResultOrder('ipv4first');
@@ -72,6 +73,7 @@ app.use("/api/vales-salida", valeRoutes);
 app.use("/api/vales-torno", valeTornoRoutes);
 app.use("/api/solicitudes-compra", solicitudCompraRoutes);
 app.use("/api/resumen", resumenRoutes);
+app.use("/api/encuestas", encuestaRoutes);
 
 
 const MONGO_URI = process.env.MONGO_URI;

@@ -3,7 +3,9 @@ import Montacargas from "../models/Montacargas.js";
 import OrdenRefaccion from "../models/OrdenRefaccion.js";
 import TipoServicio from "../models/TipoServicio.js";
 import CatalogoEquipo from "../models/CatalogoEquipo.js";
-import { enviarEmailCierreServicio, enviarEmailPausaServicio } from "../utils/mailer.js";
+import Encuesta from "../models/Encuesta.js";
+import crypto from "crypto";
+import { enviarEmailCierreServicio, enviarEmailPausaServicio, enviarEmailEncuesta } from "../utils/mailer.js";
 
 async function generarFolioServicio() {
   const ultimo = await Servicio.findOne().sort({ createdAt: -1 }).select("folio");
@@ -126,7 +128,6 @@ export async function iniciarServicio(req, res) {
     servicio.horaInicio = new Date();
     servicio.estatus    = "en_proceso";
 
-    // Guardar ubicación de inicio si viene en el body
     if (req.body.ubicacion?.lat && req.body.ubicacion?.lng) {
       servicio.ubicacionInicio = {
         lat: req.body.ubicacion.lat,
@@ -243,7 +244,7 @@ export async function cerrarServicio(req, res) {
 
     const servicio = await Servicio.findByIdAndUpdate(req.params.id, updateData, { new: true })
       .populate("montacargas", "numeroEconomico marca modelo serie")
-      .populate("cliente", "nombre direccion telefono")
+      .populate("cliente", "nombre direccion telefono email")
       .populate("tipoServicio", "nombre")
       .populate("tecnicoAsignado", "nombre")
       .populate({ path: "ordenRefaccion", populate: { path: "items.refaccion", select: "nombre numeroParte unidad precio" } });
@@ -251,14 +252,14 @@ export async function cerrarServicio(req, res) {
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
 
     await Montacargas.findByIdAndUpdate(servicio.montacargas, {
-    horometroActual: horometro,
-    fechaUltimoServicio: new Date(),
-    proximoServicio,
-    // ✅ calcular próximo mantenimiento automáticamente: 1 mes después
-    proximoMantenimiento: new Date(new Date().setMonth(new Date().getMonth() + 1)),
-    estatus: estatusMonta || "disponible",
+      horometroActual: horometro,
+      fechaUltimoServicio: new Date(),
+      proximoServicio,
+      proximoMantenimiento: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+      estatus: estatusMonta || "disponible",
     });
 
+    // ── Email de cierre a internos ────────────────────────────────────────────
     try {
       const destinatarios = [
         { nombre: "Richard",   email: "richard@pipsamontacargas.com" },
@@ -268,6 +269,35 @@ export async function cerrarServicio(req, res) {
       await enviarEmailCierreServicio(destinatarios, servicio);
     } catch (emailErr) {
       console.error("Error enviando email de cierre:", emailErr.message);
+    }
+
+    // ── Encuesta automática al cliente ────────────────────────────────────────
+    try {
+      const emailCliente = servicio.cliente?.email;
+      if (emailCliente) {
+        const yaExiste = await Encuesta.findOne({ servicio: servicio._id });
+        if (!yaExiste) {
+          const token = crypto.randomBytes(32).toString("hex");
+          await Encuesta.create({
+            servicio:        servicio._id,
+            cliente:         servicio.cliente._id,
+            tecnicoAsignado: servicio.tecnicoAsignado?._id,
+            token,
+            emailEnviado:    emailCliente,
+            fechaEnvio:      new Date(),
+            estatus:         "pendiente",
+          });
+          const BASE_URL     = process.env.FRONTEND_URL || "https://controlpipsa.vercel.app";
+          const linkEncuesta = `${BASE_URL}/encuesta/${token}`;
+          await enviarEmailEncuesta(
+            { nombre: servicio.cliente.nombre, email: emailCliente },
+            servicio,
+            linkEncuesta
+          );
+        }
+      }
+    } catch (encuestaErr) {
+      console.error("Error al crear/enviar encuesta automática:", encuestaErr.message);
     }
 
     res.json(servicio);
