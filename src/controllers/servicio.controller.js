@@ -4,7 +4,7 @@ import OrdenRefaccion from "../models/OrdenRefaccion.js";
 import TipoServicio from "../models/TipoServicio.js";
 import CatalogoEquipo from "../models/CatalogoEquipo.js";
 import Encuesta from "../models/Encuesta.js";
-import { randomBytes } from "crypto";
+import crypto from "crypto";
 import { enviarEmailCierreServicio, enviarEmailPausaServicio, enviarEmailEncuesta } from "../utils/mailer.js";
 
 async function generarFolioServicio() {
