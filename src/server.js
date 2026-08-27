@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import morgan from 'morgan';
 import dns from 'node:dns';
+import https from 'node:https';
 
 import cotizacionRoutes from "./routes/cotizacion.routes.js";
 import userRoutes from "./routes/user.routes.js";
@@ -30,9 +31,9 @@ import valeTornoRoutes from "./routes/valeTorno.routes.js";
 import solicitudCompraRoutes from "./routes/solicitudCompra.routes.js";
 import resumenRoutes from "./routes/resumen.routes.js";
 import encuestaRoutes from "./routes/encuesta.routes.js";
-import hallazgoRoutes      from "./routes/hallazgo.routes.js";
+import hallazgoRoutes       from "./routes/hallazgo.routes.js";
 import reporteClienteRoutes from "./routes/reporteCliente.routes.js";
-import { seedHallazgos }   from "./controllers/hallazgo.controller.js";
+import { seedHallazgos }    from "./controllers/hallazgo.controller.js";
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 dns.setDefaultResultOrder('ipv4first');
@@ -52,6 +53,35 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(morgan('dev'));
 
 app.get('/', (req, res) => res.json({ ok: true, name: 'Control Pipsa API' }));
+
+// ── Proxy de descarga para PDFs de Cloudinary ─────────────────────────────────
+app.get('/api/descargar', (req, res) => {
+  const { url, nombre } = req.query;
+  if (!url) return res.status(400).json({ message: "url requerida" });
+
+  try {
+    const urlObj = new URL(url);
+    // Solo permitir descargas de Cloudinary
+    if (!urlObj.hostname.includes("cloudinary.com")) {
+      return res.status(403).json({ message: "Dominio no permitido" });
+    }
+
+    https.get(url, (cloudRes) => {
+      const contentType = cloudRes.headers["content-type"] ?? "application/octet-stream";
+      const fileName    = nombre ?? "documento";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(fileName)}"`);
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      cloudRes.pipe(res);
+    }).on("error", (e) => {
+      console.error("Error proxy descarga:", e.message);
+      res.status(500).json({ message: "Error al descargar el archivo" });
+    });
+  } catch (e) {
+    res.status(400).json({ message: "URL inválida" });
+  }
+});
+
 app.use('/api/auth',  authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/users', userRoutes);
@@ -77,10 +107,8 @@ app.use("/api/vales-torno", valeTornoRoutes);
 app.use("/api/solicitudes-compra", solicitudCompraRoutes);
 app.use("/api/resumen", resumenRoutes);
 app.use("/api/encuestas", encuestaRoutes);
-app.use("/api/hallazgos",       hallazgoRoutes);
+app.use("/api/hallazgos",        hallazgoRoutes);
 app.use("/api/reportes-cliente", reporteClienteRoutes);
-
-
 
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) console.error('❌ Falta MONGO_URI en el .env');
