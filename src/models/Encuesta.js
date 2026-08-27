@@ -15,7 +15,7 @@ const encuestaSchema = new mongoose.Schema(
     },
     tecnicoAsignado: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Usuario",
+      ref: "User",
     },
 
     // Token único para el link público (sin login)
