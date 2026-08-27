@@ -571,3 +571,135 @@ export async function enviarEmailCobroMultiple({ cliente, facturas, totalGeneral
     html,
   });
 }
+
+export async function enviarEmailEncuesta(destinatario, servicio, linkEncuesta) {
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
+      <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #f0b800;display:flex;align-items:center;gap:16px;">
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+             style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
+        <div>
+          <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">Tu opinión nos importa</p>
+          <p style="margin:0;font-size:13px;color:#f0b800;">Pipsa Montacargas — Encuesta de satisfacción</p>
+        </div>
+      </div>
+      <div style="padding:28px 32px;">
+        <p style="margin:0 0 16px;font-size:14px;color:#aab0c6;">
+          Hola <strong style="color:#fff;">${destinatario.nombre}</strong>, hemos concluido el servicio solicitado
+          y nos gustaría conocer tu opinión para seguir mejorando.
+        </p>
+        <div style="background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;margin-bottom:24px;">
+          <p style="margin:0 0 4px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Folio del servicio</p>
+          <p style="margin:0;font-size:20px;font-weight:700;color:#f0b800;">${servicio.folio}</p>
+          ${servicio.problema ? `<p style="margin:8px 0 0;font-size:13px;color:#aab0c6;">${servicio.problema}</p>` : ""}
+        </div>
+        <p style="margin:0 0 24px;font-size:14px;color:#aab0c6;">
+          La encuesta solo toma <strong style="color:#fff;">2 minutos</strong>. Tu respuesta es completamente confidencial.
+        </p>
+        <div style="text-align:center;margin-bottom:24px;">
+          <a href="${linkEncuesta}"
+             style="display:inline-block;background:#f0b800;color:#0f1117;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:15px;font-weight:700;letter-spacing:.02em;">
+            Responder encuesta →
+          </a>
+        </div>
+        <p style="margin:0;font-size:11px;color:#4a5068;text-align:center;">
+          Si el botón no funciona, copia este link en tu navegador:<br/>
+          <a href="${linkEncuesta}" style="color:#f0b800;">${linkEncuesta}</a>
+        </p>
+      </div>
+      <div style="background:#1a1d27;padding:16px 32px;text-align:center;border-top:1px solid #2a2d3a;">
+        <p style="margin:0;font-size:12px;color:#7a8099;">Control Pipsa — Pipsa Montacargas</p>
+        <p style="margin:4px 0 0;font-size:11px;color:#4a5068;">Este es un mensaje automático, no responder.</p>
+      </div>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from:    `"Pipsa Montacargas" <${process.env.MAIL_USER}>`,
+    to:      destinatario.email,
+    subject: `¿Cómo fue tu experiencia? — Servicio ${servicio.folio}`,
+    html,
+  });
+}
+
+export async function enviarEmailNotificacionEncuesta(destinatario, encuesta) {
+  const estrellas = (n) => "★".repeat(n) + "☆".repeat(5 - n);
+  const labelOpcion = { si: "Sí", no: "No", parcialmente: "Parcialmente" };
+
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
+      <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #22c55e;display:flex;align-items:center;gap:16px;">
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+             style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
+        <div>
+          <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">📋 Nueva encuesta respondida</p>
+          <p style="margin:0;font-size:13px;color:#22c55e;">Servicio ${encuesta.servicio?.folio ?? "S/F"} — ${encuesta.cliente?.nombre ?? "Cliente"}</p>
+        </div>
+      </div>
+      <div style="padding:28px 32px;">
+        <div style="display:flex;gap:12px;margin-bottom:20px;">
+          <div style="flex:1;background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Calificación general</p>
+            <p style="margin:0;font-size:28px;font-weight:700;color:#f0b800;">${encuesta.p5_general}/5</p>
+            <p style="margin:4px 0 0;font-size:18px;color:#f0b800;">${estrellas(encuesta.p5_general)}</p>
+          </div>
+          <div style="flex:1;background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">¿Recomendaría Pipsa?</p>
+            <p style="margin:0;font-size:28px;font-weight:700;color:${encuesta.recomendaria ? "#22c55e" : "#f87171"};">
+              ${encuesta.recomendaria ? "✓ Sí" : "✗ No"}
+            </p>
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;background:#1a1d27;border-radius:8px;overflow:hidden;border:1px solid #2a2d3a;margin-bottom:20px;">
+          <thead>
+            <tr style="background:#222537;">
+              <th colspan="2" style="padding:10px 16px;text-align:left;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Detalle de respuestas</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:10px 16px;color:#7a8099;font-size:13px;width:60%;">1. Atención del técnico</td>
+              <td style="padding:10px 16px;font-size:16px;color:#f0b800;">${estrellas(encuesta.p1_atencion)} <span style="font-size:12px;color:#7a8099;">(${encuesta.p1_atencion}/5)</span></td>
+            </tr>
+            <tr style="background:#222537;">
+              <td style="padding:10px 16px;color:#7a8099;font-size:13px;">2. Servicio en tiempo acordado</td>
+              <td style="padding:10px 16px;font-size:13px;font-weight:600;color:${encuesta.p2_tiempoAcordado === "si" ? "#22c55e" : encuesta.p2_tiempoAcordado === "no" ? "#f87171" : "#f59e0b"};">
+                ${labelOpcion[encuesta.p2_tiempoAcordado] ?? "—"}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px 16px;color:#7a8099;font-size:13px;">3. Satisfacción con la solución</td>
+              <td style="padding:10px 16px;font-size:16px;color:#f0b800;">${estrellas(encuesta.p3_satisfaccion)} <span style="font-size:12px;color:#7a8099;">(${encuesta.p3_satisfaccion}/5)</span></td>
+            </tr>
+            <tr style="background:#222537;">
+              <td style="padding:10px 16px;color:#7a8099;font-size:13px;">4. Técnico explicó el trabajo</td>
+              <td style="padding:10px 16px;font-size:13px;font-weight:600;color:${encuesta.p4_comunicacion === "si" ? "#22c55e" : encuesta.p4_comunicacion === "no" ? "#f87171" : "#f59e0b"};">
+                ${labelOpcion[encuesta.p4_comunicacion] ?? "—"}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px 16px;color:#7a8099;font-size:13px;">5. Calificación general</td>
+              <td style="padding:10px 16px;font-size:16px;color:#f0b800;">${estrellas(encuesta.p5_general)} <span style="font-size:12px;color:#7a8099;">(${encuesta.p5_general}/5)</span></td>
+            </tr>
+          </tbody>
+        </table>
+        ${encuesta.comentarios ? `
+        <div style="background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;">
+          <p style="margin:0 0 6px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Comentarios del cliente</p>
+          <p style="margin:0;font-size:14px;color:#fff;font-style:italic;">"${encuesta.comentarios}"</p>
+        </div>` : ""}
+      </div>
+      <div style="background:#1a1d27;padding:16px 32px;text-align:center;border-top:1px solid #2a2d3a;">
+        <p style="margin:0;font-size:12px;color:#7a8099;">Control Pipsa — Encuestas de satisfacción</p>
+        <p style="margin:4px 0 0;font-size:11px;color:#4a5068;">Este es un mensaje automático, no responder.</p>
+      </div>
+    </div>
+  `;
+
+  await transporter.sendMail({
+    from:    `"Control Pipsa" <${process.env.MAIL_USER}>`,
+    to:      destinatario.email,
+    subject: `📋 Encuesta respondida — ${encuesta.servicio?.folio ?? "S/F"} | ${encuesta.cliente?.nombre ?? "Cliente"}`,
+    html,
+  });
+}
