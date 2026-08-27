@@ -3,7 +3,10 @@ import Encuesta from "../models/Encuesta.js";
 import Servicio from "../models/Servicio.js";
 import { enviarEmailEncuesta, enviarEmailNotificacionEncuesta } from "../utils/mailer.js";
 
-const NOTIFICACION_DESTINO = { nombre: "Pipsa", email: "polea@jitservices.com" };
+const NOTIFICACION_DESTINO = [
+  { nombre: "Alec",        email: "tu_correo@gmail.com" },
+  { nombre: "Administración", email: "admin@pipsamontacargas.com" },
+];
 
 function generarToken() {
   return crypto.randomBytes(32).toString("hex");
@@ -122,10 +125,12 @@ export async function responderEncuesta(req, res) {
     await encuesta.save();
 
     try {
-      await enviarEmailNotificacionEncuesta(NOTIFICACION_DESTINO, encuesta);
-    } catch (mailErr) {
-      console.error("Error enviando notificación interna de encuesta:", mailErr.message);
+    for (const dest of NOTIFICACION_DESTINO) {
+        await enviarEmailNotificacionEncuesta(dest, encuesta);
     }
+    } catch (mailErr) {
+    console.error("Error enviando notificación interna de encuesta:", mailErr.message);
+}
 
     res.json({ message: "¡Gracias por tu respuesta! Tu opinión es muy importante para nosotros." });
   } catch (e) {
