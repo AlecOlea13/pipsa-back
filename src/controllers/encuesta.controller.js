@@ -45,7 +45,7 @@ export async function enviarEncuesta(req, res) {
       estatus: "pendiente",
     });
 
-    const BASE_URL = process.env.FRONTEND_URL || "https://controlpipsa.vercel.app";
+    const BASE_URL = process.env.FRONTEND_URL || "https://last-to-do-u9vd.vercel.app";
     const linkEncuesta = `${BASE_URL}/encuesta/${token}`;
 
     await enviarEmailEncuesta({ nombre: servicio.cliente.nombre, email }, servicio, linkEncuesta);

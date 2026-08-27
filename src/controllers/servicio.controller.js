@@ -287,7 +287,7 @@ export async function cerrarServicio(req, res) {
             fechaEnvio:      new Date(),
             estatus:         "pendiente",
           });
-          const BASE_URL     = process.env.FRONTEND_URL || "https://controlpipsa.vercel.app";
+          const BASE_URL     = process.env.FRONTEND_URL || "https://last-to-do-u9vd.vercel.app";
           const linkEncuesta = `${BASE_URL}/encuesta/${token}`;
           await enviarEmailEncuesta(
             { nombre: servicio.cliente.nombre, email: emailCliente },
