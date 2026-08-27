@@ -30,6 +30,9 @@ import valeTornoRoutes from "./routes/valeTorno.routes.js";
 import solicitudCompraRoutes from "./routes/solicitudCompra.routes.js";
 import resumenRoutes from "./routes/resumen.routes.js";
 import encuestaRoutes from "./routes/encuesta.routes.js";
+import hallazgoRoutes      from "./routes/hallazgo.routes.js";
+import reporteClienteRoutes from "./routes/reporteCliente.routes.js";
+import { seedHallazgos }   from "./controllers/hallazgo.controller.js";
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 dns.setDefaultResultOrder('ipv4first');
@@ -74,6 +77,9 @@ app.use("/api/vales-torno", valeTornoRoutes);
 app.use("/api/solicitudes-compra", solicitudCompraRoutes);
 app.use("/api/resumen", resumenRoutes);
 app.use("/api/encuestas", encuestaRoutes);
+app.use("/api/hallazgos",       hallazgoRoutes);
+app.use("/api/reportes-cliente", reporteClienteRoutes);
+
 
 
 const MONGO_URI = process.env.MONGO_URI;
@@ -90,6 +96,7 @@ export async function connectDB() {
   });
   isConnected = true;
   console.log('✅ Conectado a MongoDB');
+  await seedHallazgos();
 }
 
 if (process.env.NODE_ENV !== 'production') {
