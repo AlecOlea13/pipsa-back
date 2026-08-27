@@ -23,13 +23,16 @@ export async function enviarEncuesta(req, res) {
     if (servicio.estatus !== "cerrado") return res.status(400).json({ message: "Solo se puede enviar encuesta de servicios cerrados" });
 
     const encuestaExistente = await Encuesta.findOne({ servicio: servicioId });
-    if (encuestaExistente) {
-      return res.status(400).json({
-        message: "Ya existe una encuesta para este servicio",
-        encuestaId: encuestaExistente._id,
-        estatus: encuestaExistente.estatus,
-      });
-    }
+if (encuestaExistente) {
+  if (encuestaExistente.estatus === "respondida") {
+    return res.status(400).json({
+      message: "Esta encuesta ya fue respondida por el cliente.",
+      estatus: "respondida",
+    });
+  }
+  // Si existe pero no está respondida, la eliminamos y creamos una nueva
+  await Encuesta.deleteOne({ _id: encuestaExistente._id });
+}
 
     const email = emailDestino || servicio.cliente?.email;
     if (!email) return res.status(400).json({ message: "El cliente no tiene correo registrado. Proporciona un emailDestino en el body." });
