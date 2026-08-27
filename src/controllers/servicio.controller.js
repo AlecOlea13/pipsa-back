@@ -3,9 +3,7 @@ import Montacargas from "../models/Montacargas.js";
 import OrdenRefaccion from "../models/OrdenRefaccion.js";
 import TipoServicio from "../models/TipoServicio.js";
 import CatalogoEquipo from "../models/CatalogoEquipo.js";
-import Encuesta from "../models/Encuesta.js";
-import crypto from "crypto";
-import { enviarEmailCierreServicio, enviarEmailPausaServicio, enviarEmailEncuesta } from "../utils/mailer.js";
+import { enviarEmailCierreServicio, enviarEmailPausaServicio } from "../utils/mailer.js";
 
 async function generarFolioServicio() {
   const ultimo = await Servicio.findOne().sort({ createdAt: -1 }).select("folio");
@@ -259,7 +257,6 @@ export async function cerrarServicio(req, res) {
       estatus: estatusMonta || "disponible",
     });
 
-    // ── Email de cierre a internos ────────────────────────────────────────────
     try {
       const destinatarios = [
         { nombre: "Richard",   email: "richard@pipsamontacargas.com" },
@@ -269,35 +266,6 @@ export async function cerrarServicio(req, res) {
       await enviarEmailCierreServicio(destinatarios, servicio);
     } catch (emailErr) {
       console.error("Error enviando email de cierre:", emailErr.message);
-    }
-
-    // ── Encuesta automática al cliente ────────────────────────────────────────
-    try {
-      const emailCliente = servicio.cliente?.email;
-      if (emailCliente) {
-        const yaExiste = await Encuesta.findOne({ servicio: servicio._id });
-        if (!yaExiste) {
-          const token = crypto.randomBytes(32).toString("hex");
-          await Encuesta.create({
-            servicio:        servicio._id,
-            cliente:         servicio.cliente._id,
-            tecnicoAsignado: servicio.tecnicoAsignado?._id,
-            token,
-            emailEnviado:    emailCliente,
-            fechaEnvio:      new Date(),
-            estatus:         "pendiente",
-          });
-          const BASE_URL     = process.env.FRONTEND_URL || "https://last-to-do-u9vd.vercel.app";
-          const linkEncuesta = `${BASE_URL}/encuesta/${token}`;
-          await enviarEmailEncuesta(
-            { nombre: servicio.cliente.nombre, email: emailCliente },
-            servicio,
-            linkEncuesta
-          );
-        }
-      }
-    } catch (encuestaErr) {
-      console.error("Error al crear/enviar encuesta automática:", encuestaErr.message);
     }
 
     res.json(servicio);
