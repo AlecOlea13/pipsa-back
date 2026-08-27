@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { verifyToken, checkRol } from "../middleware/auth.js";
+import { auth, requireRol } from "../middleware/auth.js";
 import {
   enviarEncuesta,
   getEncuestaPublica,
@@ -11,39 +11,16 @@ import {
 
 const router = Router();
 
-// ─── Rutas PÚBLICAS (sin token, el cliente accede desde su correo) ────────────
+// ── Rutas PÚBLICAS (sin token) ────────────────────────────────────────────────
 router.get("/responder/:token",  getEncuestaPublica);
 router.post("/responder/:token", responderEncuesta);
 
-// ─── Rutas PRIVADAS (requieren login) ────────────────────────────────────────
+// ── Rutas PRIVADAS ────────────────────────────────────────────────────────────
 const rolesAdmin = ["developer", "gerencia", "oficina"];
 
-router.get(
-  "/resumen",
-  verifyToken,
-  checkRol(...rolesAdmin),
-  getResumenEncuestas
-);
-
-router.get(
-  "/",
-  verifyToken,
-  checkRol(...rolesAdmin),
-  getEncuestas
-);
-
-router.get(
-  "/:id",
-  verifyToken,
-  checkRol(...rolesAdmin),
-  getEncuesta
-);
-
-router.post(
-  "/enviar/:servicioId",
-  verifyToken,
-  checkRol(...rolesAdmin),
-  enviarEncuesta
-);
+router.get("/resumen", auth, requireRol(...rolesAdmin), getResumenEncuestas);
+router.get("/",        auth, requireRol(...rolesAdmin), getEncuestas);
+router.get("/:id",     auth, requireRol(...rolesAdmin), getEncuesta);
+router.post("/enviar/:servicioId", auth, requireRol(...rolesAdmin), enviarEncuesta);
 
 export default router;
