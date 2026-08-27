@@ -1,7 +1,5 @@
-// controllers/hallazgo.controller.js
 import Hallazgo from "../models/Hallazgo.js";
 
-// Hallazgos precargados — se insertan si no existen al arrancar
 export const HALLAZGOS_SEED = [
   {
     clave: "NC_01", numero: 1,
@@ -15,6 +13,13 @@ export const HALLAZGOS_SEED = [
     nombre: "Protección Civil",
     descripcion: "El proveedor no presentó un Dictamen de Protección Civil para las instalaciones donde desarrolla actividades de almacenamiento, mantenimiento y reparación de montacargas.",
     clasificacion: "mayor",
+    proceso: "Información legal y organizacional",
+  },
+  {
+    clave: "NC_03", numero: 3,
+    nombre: "Capacitación DC-3",
+    descripcion: "El proveedor carece de expedientes y registros suficientes que acrediten la capacitación y competencias técnicas y de seguridad de su personal.",
+    clasificacion: "menor",
     proceso: "Información legal y organizacional",
   },
   {
