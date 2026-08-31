@@ -220,21 +220,23 @@ export async function cerrarServicio(req, res) {
     if (!puedeCerrar) return res.status(403).json({ message: "No tienes permiso para cerrar este servicio" });
 
     const {
-      horometro, proximoServicio, estatusMonta,
-      notasCierre, fotoHojaFirmada, fotoEquipoFinal, fotoRefacciones,
-      ubicacion,
-    } = req.body;
+  horometro, proximoServicio, estatusMonta,
+  notasCierre, fotoHojaFirmada, fotoEquipoFinal, fotoRefacciones,
+  firmaCliente,
+  ubicacion,
+} = req.body;
 
-    const updateData = {
-      estatus: "cerrado",
-      horometroCierre: horometro,
-      proximoServicio,
-      notasCierre,
-      fotoHojaFirmada:  fotoHojaFirmada  ?? null,
-      fotoEquipoFinal:  fotoEquipoFinal  ?? null,
-      fotoRefacciones:  fotoRefacciones  ?? null,
-      horaFin: new Date(),
-    };
+const updateData = {
+  estatus: "cerrado",
+  horometroCierre: horometro,
+  proximoServicio,
+  notasCierre,
+  fotoHojaFirmada:  fotoHojaFirmada  ?? null,
+  fotoEquipoFinal:  Array.isArray(fotoEquipoFinal) ? fotoEquipoFinal : (fotoEquipoFinal ? [fotoEquipoFinal] : []),
+  fotoRefacciones:  fotoRefacciones  ?? null,
+  firmaCliente:     firmaCliente     ?? null,
+  horaFin: new Date(),
+};
 
     if (ubicacion?.lat && ubicacion?.lng) {
       updateData.ubicacionCierre = { lat: ubicacion.lat, lng: ubicacion.lng };
