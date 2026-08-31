@@ -35,6 +35,7 @@ const servicioSchema = new mongoose.Schema(
     fotoEquipoFinal:  { type: String, default: null },
     fotoRefacciones:  { type: String, default: null },
     fotos:            [{ type: String }],
+    firmaCliente: { type: String, default: null },
     ubicacionInicio:  { type: ubicacionSchema, default: null },
     ubicacionCierre:  { type: ubicacionSchema, default: null },
   },
