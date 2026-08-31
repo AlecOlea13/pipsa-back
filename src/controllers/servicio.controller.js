@@ -81,7 +81,9 @@ export async function createServicio(req, res) {
           folio: folioOrden,
           servicio: servicio._id,
           montacargas: body.montacargas,
-          items: refacciones.map(r => ({
+          items: refacciones
+          .filter(r => r.refaccion) // descarta referencias rotas
+          .map(r => ({
             refaccion: r.refaccion._id ?? r.refaccion,
             cantidadSolicitada: r.cantidad,
             cantidadSurtida: 0,
