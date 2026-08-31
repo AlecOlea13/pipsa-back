@@ -126,14 +126,25 @@ export async function enviarEmailCierreServicio(destinatarios, servicio) {
           <div style="display:flex;justify-content:space-between;margin-bottom:10px;"><span style="color:#aab0c6;font-size:13px;">Mano de obra</span><span style="color:#fff;font-size:13px;">$${(servicio.costoManoObra ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span></div>
           <div style="display:flex;justify-content:space-between;border-top:1px solid #2a2d3a;padding-top:10px;"><span style="color:#fff;font-size:15px;font-weight:700;">Total</span><span style="color:#f0b800;font-size:15px;font-weight:700;">$${((servicio.costoRefacciones ?? 0) + (servicio.costoManoObra ?? 0)).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span></div>
         </div>
-        ${servicio.fotoHojaFirmada || servicio.fotoEquipoFinal || servicio.fotoRefacciones ? `
+        ${servicio.fotoHojaFirmada || (servicio.fotoEquipoFinal && servicio.fotoEquipoFinal.length > 0) || servicio.fotoRefacciones ? `
         <div style="margin-bottom:20px;">
           <p style="margin:0 0 10px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Evidencia fotográfica</p>
           <div style="display:flex;gap:12px;flex-wrap:wrap;">
             ${servicio.fotoHojaFirmada ? `<div style="flex:1;min-width:140px;text-align:center;"><p style="margin:0 0 6px;font-size:11px;color:#7a8099;">📋 Hoja firmada</p><img src="${servicio.fotoHojaFirmada}" style="width:100%;max-width:200px;border-radius:8px;border:1px solid #2a2d3a;" /></div>` : ""}
-            ${servicio.fotoEquipoFinal ? `<div style="flex:1;min-width:140px;text-align:center;"><p style="margin:0 0 6px;font-size:11px;color:#7a8099;">📸 Equipo finalizado</p><img src="${servicio.fotoEquipoFinal}" style="width:100%;max-width:200px;border-radius:8px;border:1px solid #2a2d3a;" /></div>` : ""}
             ${servicio.fotoRefacciones ? `<div style="flex:1;min-width:140px;text-align:center;"><p style="margin:0 0 6px;font-size:11px;color:#7a8099;">🔩 Refacciones utilizadas</p><img src="${servicio.fotoRefacciones}" style="width:100%;max-width:200px;border-radius:8px;border:1px solid #2a2d3a;" /></div>` : ""}
           </div>
+          ${servicio.fotoEquipoFinal && servicio.fotoEquipoFinal.length > 0 ? `
+          <div style="margin-top:14px;">
+            <p style="margin:0 0 8px;font-size:11px;color:#7a8099;">📸 Equipo finalizado (${servicio.fotoEquipoFinal.length} foto${servicio.fotoEquipoFinal.length > 1 ? "s" : ""})</p>
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
+              ${servicio.fotoEquipoFinal.map(url => `<img src="${url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid #2a2d3a;" />`).join("")}
+            </div>
+          </div>` : ""}
+        </div>` : ""}
+        ${servicio.firmaCliente ? `
+        <div style="margin-bottom:20px;text-align:center;">
+          <p style="margin:0 0 8px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">✍️ Firma del cliente</p>
+          <img src="${servicio.firmaCliente}" style="max-width:260px;background:#fff;border-radius:8px;padding:8px;" />
         </div>` : ""}
         ${servicio.ubicacionInicio || servicio.ubicacionCierre ? `
         <div style="margin-bottom:20px;">
@@ -355,7 +366,6 @@ export async function enviarEmailPagoMultiple({ proveedor, facturas, totalGenera
   }
 }
 
-// ── CAMBIO 6: enviarEmailCobro con soporte parcial ────────────────────────
 export async function enviarEmailCobro({
   cliente, folio, total, fechaPago, complemento,
   esParcial = false, totalFactura = 0, montoPagado = 0, pendiente = 0,
@@ -637,6 +647,7 @@ export async function enviarEmailNotificacionEncuesta(destinatario, encuesta) {
         </div>
       </div>
       <div style="padding:28px 32px;">
+
         <div style="display:flex;gap:12px;margin-bottom:20px;">
           <div style="flex:1;background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;text-align:center;">
             <p style="margin:0 0 4px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Calificación general</p>
@@ -650,6 +661,7 @@ export async function enviarEmailNotificacionEncuesta(destinatario, encuesta) {
             </p>
           </div>
         </div>
+
         <table style="width:100%;border-collapse:collapse;background:#1a1d27;border-radius:8px;overflow:hidden;border:1px solid #2a2d3a;margin-bottom:20px;">
           <thead>
             <tr style="background:#222537;">
@@ -683,11 +695,13 @@ export async function enviarEmailNotificacionEncuesta(destinatario, encuesta) {
             </tr>
           </tbody>
         </table>
+
         ${encuesta.comentarios ? `
         <div style="background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;">
           <p style="margin:0 0 6px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Comentarios del cliente</p>
           <p style="margin:0;font-size:14px;color:#fff;font-style:italic;">"${encuesta.comentarios}"</p>
         </div>` : ""}
+
       </div>
       <div style="background:#1a1d27;padding:16px 32px;text-align:center;border-top:1px solid #2a2d3a;">
         <p style="margin:0;font-size:12px;color:#7a8099;">Control Pipsa — Encuestas de satisfacción</p>
@@ -703,6 +717,7 @@ export async function enviarEmailNotificacionEncuesta(destinatario, encuesta) {
     html,
   });
 }
+
 export async function enviarEmailReporteCliente(destinatarios, reporte) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
