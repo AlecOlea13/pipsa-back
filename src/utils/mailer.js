@@ -135,9 +135,9 @@ export async function enviarEmailCierreServicio(destinatarios, servicio) {
           </div>
           ${servicio.fotoEquipoFinal && servicio.fotoEquipoFinal.length > 0 ? `
           <div style="margin-top:14px;">
-            <p style="margin:0 0 8px;font-size:11px;color:#7a8099;">📸 Equipo finalizado (${servicio.fotoEquipoFinal.length} foto${servicio.fotoEquipoFinal.length > 1 ? "s" : ""})</p>
-            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
-              ${servicio.fotoEquipoFinal.map(url => `<img src="${url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid #2a2d3a;" />`).join("")}
+            <p style="margin:0 0 8px;font-size:11px;color:#7a8099;">📸 Equipo finalizado (${servicio.fotoEquipoFinal.length > 6 ? `mostrando 6 de ${servicio.fotoEquipoFinal.length}` : `${servicio.fotoEquipoFinal.length} foto${servicio.fotoEquipoFinal.length > 1 ? "s" : ""}`})</p>
+            <div style="display:grid;grid-template-columns:repeat(${Math.min(servicio.fotoEquipoFinal.length, 6)},1fr);gap:6px;">
+              ${servicio.fotoEquipoFinal.slice(0, 6).map(url => `<img src="${url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid #2a2d3a;" />`).join("")}
             </div>
           </div>` : ""}
         </div>` : ""}
