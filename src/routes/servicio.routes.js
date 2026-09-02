@@ -17,5 +17,13 @@ router.post('/:id/iniciar',                  auth, iniciarServicio);
 router.post('/:id/pausar',                   auth, pausarServicio);
 router.post('/:id/reanudar',                 auth, reanudarServicio);
 router.post('/:id/cerrar',                   auth, cerrarServicio);
+router.delete("/:id", auth, requireRol("developer"), async (req, res) => {
+  try {
+    await Servicio.findByIdAndDelete(req.params.id);
+    res.json({ message: "Eliminado" });
+  } catch (e) {
+    res.status(500).json({ message: "Error" });
+  }
+});
 
 export default router;
