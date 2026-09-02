@@ -5,6 +5,7 @@ import {
   getServiciosPorMontacargas,
 } from "../controllers/servicio.controller.js";
 import { auth } from "../middleware/auth.js";
+import { requireRol } from "../middleware/auth.js";
 
 const router = Router();
 
