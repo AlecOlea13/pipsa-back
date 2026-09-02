@@ -292,3 +292,14 @@ export async function getServiciosPorMontacargas(req, res) {
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
+
+export async function eliminarServicio(req, res) {
+  try {
+    const servicio = await Servicio.findByIdAndDelete(req.params.id);
+    if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
+    res.json({ message: "Servicio eliminado correctamente" });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: "Error al eliminar el servicio" });
+  }
+}
