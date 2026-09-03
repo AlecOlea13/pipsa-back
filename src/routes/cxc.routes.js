@@ -11,7 +11,7 @@ router.post("/",               auth, canAccess, createCxc);
 router.post("/cobrar-por-rep", auth, canAccess, cobrarPorRep);
 router.post("/cobrar-multiple", auth, canAccess, cobrarMultiple);
 router.put("/:id",             auth, canAccess, updateCxc);
-router.delete("/:id",          auth, requireRol("developer", "gerencia"), deleteCxc);
+router.delete("/:id",          auth, requireRol("developer", "gerencia", "oficina"), deleteCxc);
 router.post("/:id/cobrar",     auth, canAccess, cobrarCxc);
 router.post("/:id/cancelar", auth, cancelarCxc);
 
