@@ -138,8 +138,8 @@ router.get("/cartera", auth, soloDeveloperYGerencia, async (req, res) => {
       {
         $group: {
           _id:                "$nombreReceptor",
-          totalFacturado:     { $sum: "$total" },
-          totalCobrado:       { $sum: "$montoPagado" },
+          totalFacturado:     { $sum: { $ifNull: ["$total", 0] } },
+          totalCobrado:       { $sum: { $ifNull: ["$montoPagado", 0] } },
           facturas:           { $sum: 1 },
           facturasPendientes: { $sum: { $cond: [{ $eq: ["$estatus", "pendiente"] }, 1, 0] } },
           facturasParciales:  { $sum: { $cond: [{ $eq: ["$estatus", "parcial"]  }, 1, 0] } },
@@ -147,8 +147,8 @@ router.get("/cartera", auth, soloDeveloperYGerencia, async (req, res) => {
           documentos: {
             $push: {
               folioFactura: "$folioFactura",
-              total:        "$total",
-              montoPagado:  "$montoPagado",
+              total:        { $ifNull: ["$total", 0] },
+              montoPagado:  { $ifNull: ["$montoPagado", 0] },
               estatus:      "$estatus",
               fechaEmision: "$fechaEmision",
             },
