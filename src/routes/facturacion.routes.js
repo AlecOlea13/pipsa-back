@@ -556,21 +556,29 @@ router.post("/:id/cancelar", auth, puedeFacturar, async (req, res) => {
     if (factura.estatus === "cancelada") return res.status(400).json({ message: "Ya está cancelada" });
 
     const body = {
-      Cancelacion: {
-        modo:   "debug",
-        rfc:    EF_RFC,
+      rfc:    EF_RFC,
+      accion: "cancelar",
+      CFDi: {
         uuid:   factura.uuid,
         motivo,
+        serie:  factura.serie ?? "MA",
+        folio:  factura.folio?.replace(`${factura.serie}-`, "") ?? factura.folio,
         ...(motivo === "01" && uuidSustitucion ? { folioSustitucion: uuidSustitucion } : {}),
       },
     };
 
+    console.log("BODY CANCELAR:", JSON.stringify(body, null, 2));
+
     const efRes = await llamarEF("cancelarCfdi", body);
     const ack   = efRes.AckEnlaceFiscal;
 
+    console.log("EF CANCELAR RESPONSE:", JSON.stringify(efRes, null, 2));
+
     if (!["aceptado", "solicitud_enviada"].includes(ack?.estatusDocumento)) {
-      console.error("EF ERROR CANCELAR:", JSON.stringify(efRes, null, 2));
-      return res.status(400).json({ message: ack?.mensajeError?.descripcionError ?? "Error al cancelar", detalle: efRes });
+      return res.status(400).json({ 
+        message: ack?.mensajeError?.descripcionError ?? "Error al cancelar", 
+        detalle: efRes 
+      });
     }
 
     await Factura.findByIdAndUpdate(req.params.id, { estatus: "cancelada" });
