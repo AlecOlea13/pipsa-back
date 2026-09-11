@@ -550,20 +550,30 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
 // ════════════════════════════════════════
 router.post("/:id/cancelar", auth, puedeFacturar, async (req, res) => {
   try {
-    const { motivo = "02", uuidSustitucion } = req.body;
+    const { motivo = "03", justificacion, uuidSustitucion } = req.body;
     const factura = await Factura.findById(req.params.id);
     if (!factura) return res.status(404).json({ message: "Factura no encontrada" });
     if (factura.estatus === "cancelada") return res.status(400).json({ message: "Ya está cancelada" });
 
+    const folioNumerico = parseInt(factura.folio?.replace(`${factura.serie}-`, "") ?? factura.folio, 10);
+
     const body = {
-      rfc:    EF_RFC,
-      accion: "cancelar",
-      CFDi: {
-        uuid:   factura.uuid,
-        motivo,
-        serie:  factura.serie ?? "MA",
-        folio:  factura.folio?.replace(`${factura.serie}-`, "") ?? factura.folio,
-        ...(motivo === "01" && uuidSustitucion ? { folioSustitucion: uuidSustitucion } : {}),
+      Solicitud: {
+        modo:   "debug",
+        rfc:    EF_RFC,
+        accion: "cancelarCfdi",
+        CFDi: {
+          serie:  factura.serie ?? "MA",
+          folio:  folioNumerico,
+          ...(justificacion ? { justificacion } : {}),
+          motivo,
+          ...(motivo === "01" && uuidSustitucion ? {
+            ComprobanteSustitucion: {
+              serie: factura.serie ?? "MA",
+              folio: parseInt(uuidSustitucion, 10),
+            },
+          } : {}),
+        },
       },
     };
 
@@ -574,10 +584,10 @@ router.post("/:id/cancelar", auth, puedeFacturar, async (req, res) => {
 
     console.log("EF CANCELAR RESPONSE:", JSON.stringify(efRes, null, 2));
 
-    if (!["aceptado", "solicitud_enviada"].includes(ack?.estatusDocumento)) {
-      return res.status(400).json({ 
-        message: ack?.mensajeError?.descripcionError ?? "Error al cancelar", 
-        detalle: efRes 
+    if (!["aceptado"].includes(ack?.estatusDocumento)) {
+      return res.status(400).json({
+        message: ack?.mensajeError?.descripcionError ?? "Error al cancelar",
+        detalle: efRes,
       });
     }
 
