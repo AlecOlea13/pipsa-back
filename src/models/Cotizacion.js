@@ -46,7 +46,7 @@ const cotizacionSchema = new mongoose.Schema(
     clienteOcasional: { type: clienteOcasionalSchema, default: null },
     montacargas:  { type: mongoose.Schema.Types.ObjectId, ref: "Montacargas" },
     fecha:        { type: Date, default: Date.now },
-    lugar:        { type: String, trim: true, default: "Zapopán, Jal" },
+    lugar:        { type: String, trim: true, default: "Tlaquepaque, Jal" },
     descripcionServicio: { type: String, trim: true },
     items:        [itemSchema],
     subtotal:     { type: Number, default: 0 },
