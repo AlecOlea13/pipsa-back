@@ -139,7 +139,56 @@ export async function marcarVendido(req, res) {
   }
 }
 
-// ── POST /montacargas/:id/deshacer-venta ──
+// ── PUT /montacargas/:id/editar-venta ──
+// Permite corregir los datos de una venta ya capturada (developer/gerencia),
+// sin necesidad de deshacer y volver a vender. Recalcula IVA/total igual
+// que marcarVendido, siempre en el backend.
+export async function editarVenta(req, res) {
+  try {
+    const { montoFacturado, montoEfectivo, numeroFactura, fecha, clienteId, clienteNombre, asesorId, notas } = req.body;
+
+    const facturado = Number(montoFacturado) || 0;
+    const efectivo  = Number(montoEfectivo) || 0;
+
+    if (facturado <= 0 && efectivo <= 0) {
+      return res.status(400).json({ message: "Captura al menos un monto facturado o en efectivo" });
+    }
+
+    const monta = await Montacargas.findById(req.params.id);
+    if (!monta) return res.status(404).json({ message: "Montacargas no encontrado" });
+
+    if (monta.estatus !== "vendido") {
+      return res.status(400).json({ message: "Este equipo no está marcado como vendido" });
+    }
+
+    const iva     = parseFloat((facturado * 0.16).toFixed(2));
+    const importe = parseFloat((facturado + iva + efectivo).toFixed(2));
+
+    monta.venta = {
+      fecha: fecha ? new Date(fecha) : monta.venta.fecha,
+      importe,
+      montoFacturado: facturado,
+      ivaFacturado: iva,
+      numeroFactura: numeroFactura || "",
+      montoEfectivo: efectivo,
+      cliente: clienteId || null,
+      clienteNombre: clienteNombre || "",
+      asesor: asesorId || null,
+      notas: notas || "",
+    };
+
+    await monta.save();
+
+    const populated = await Montacargas.findById(monta._id)
+      .populate("venta.cliente", "nombre")
+      .populate("venta.asesor", "nombre");
+
+    res.json(populated);
+  } catch (e) {
+    console.error("Error editarVenta:", e);
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+}
 // Revierte una venta por error de captura: regresa el equipo a "disponible"
 // y limpia los datos de venta.
 export async function deshacerVenta(req, res) {

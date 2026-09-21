@@ -2,7 +2,7 @@ import { Router } from "express";
 import {
   getMontacargas, getMonta, createMonta, updateMonta, deleteMonta,
   asignarCliente, regresarMonta,
-  marcarVendido, deshacerVenta, reporteVentas,
+  marcarVendido, editarVenta, deshacerVenta, reporteVentas,
 } from "../controllers/montacargas.controller.js";
 import { auth } from "../middleware/auth.js";
 
@@ -17,6 +17,7 @@ router.delete('/:id',             auth, deleteMonta);
 router.post('/:id/asignar',       auth, asignarCliente);
 router.post('/:id/regresar',      auth, regresarMonta);
 router.post('/:id/vender',        auth, marcarVendido);
+router.put('/:id/editar-venta',   auth, editarVenta);
 router.post('/:id/deshacer-venta',auth, deshacerVenta);
 
 export default router;
