@@ -24,7 +24,8 @@ const montacargasSchema = new mongoose.Schema(
     },
     horometroActual:          { type: Number, default: 0 },
     horasRestantesServicio:   { type: Number, default: 0 },
-    estatus:                  { type: String, enum: ["disponible", "rentado", "taller", "mantenimiento"], default: "disponible" },
+    // ── "vendido" agregado: al marcarse así, el equipo sale del catálogo/filtros normales ──
+    estatus:                  { type: String, enum: ["disponible", "rentado", "taller", "mantenimiento", "vendido"], default: "disponible" },
     clienteActual:            { type: mongoose.Schema.Types.ObjectId, ref: "Cliente", default: null },
     costoDia:     { type: Number, default: 0 },
     costoSemana:  { type: Number, default: 0 },
@@ -35,6 +36,16 @@ const montacargasSchema = new mongoose.Schema(
     proximoMantenimiento:     { type: Date, default: null },
     fechaUltimoServicio:      { type: Date, default: null },
     proximoServicio:          { type: Date, default: null },
+
+    // ── Datos de la venta, solo se llenan cuando estatus === "vendido" ──
+    venta: {
+      fecha:          { type: Date, default: null },
+      importe:        { type: Number, default: 0 },
+      cliente:        { type: mongoose.Schema.Types.ObjectId, ref: "Cliente", default: null },
+      clienteNombre:  { type: String, trim: true, default: "" }, // por si es cliente ocasional, sin catálogo
+      asesor:         { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", default: null },
+      notas:          { type: String, trim: true, default: "" },
+    },
   },
   { timestamps: true }
 );
