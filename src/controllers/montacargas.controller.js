@@ -87,14 +87,22 @@ export async function regresarMonta(req, res) {
 
 // ── POST /montacargas/:id/vender ──
 // Marca el equipo como vendido: sale del catálogo/inventario activo,
-// guarda importe, fecha, cliente (o nombre libre) y asesor que hizo la venta.
+// guarda el desglose de pago (facturado + efectivo) y calcula el IVA
+// sobre la parte facturada. El importe total SIEMPRE se calcula aquí,
+// nunca se confía en un total que mande el frontend.
 export async function marcarVendido(req, res) {
   try {
-    const { importe, fecha, clienteId, clienteNombre, asesorId, notas } = req.body;
+    const { montoFacturado, montoEfectivo, fecha, clienteId, clienteNombre, asesorId, notas } = req.body;
 
-    if (!importe || Number(importe) <= 0) {
-      return res.status(400).json({ message: "El importe de venta es requerido y debe ser mayor a 0" });
+    const facturado = Number(montoFacturado) || 0;
+    const efectivo  = Number(montoEfectivo) || 0;
+
+    if (facturado <= 0 && efectivo <= 0) {
+      return res.status(400).json({ message: "Captura al menos un monto facturado o en efectivo" });
     }
+
+    const iva     = parseFloat((facturado * 0.16).toFixed(2));
+    const importe = parseFloat((facturado + iva + efectivo).toFixed(2));
 
     const monta = await Montacargas.findById(req.params.id);
     if (!monta) return res.status(404).json({ message: "Montacargas no encontrado" });
@@ -107,7 +115,10 @@ export async function marcarVendido(req, res) {
     monta.clienteActual = null; // ya no está rentado a nadie
     monta.venta = {
       fecha: fecha ? new Date(fecha) : new Date(),
-      importe: Number(importe),
+      importe,
+      montoFacturado: facturado,
+      ivaFacturado: iva,
+      montoEfectivo: efectivo,
       cliente: clienteId || null,
       clienteNombre: clienteNombre || "",
       asesor: asesorId || null,

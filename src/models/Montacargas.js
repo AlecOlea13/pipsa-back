@@ -40,7 +40,10 @@ const montacargasSchema = new mongoose.Schema(
     // ── Datos de la venta, solo se llenan cuando estatus === "vendido" ──
     venta: {
       fecha:          { type: Date, default: null },
-      importe:        { type: Number, default: 0 },
+      importe:        { type: Number, default: 0 }, // total real cobrado = facturado(+IVA) + efectivo
+      montoFacturado: { type: Number, default: 0 }, // subtotal SIN IVA de la parte facturada
+      ivaFacturado:   { type: Number, default: 0 }, // IVA calculado sobre montoFacturado (16%)
+      montoEfectivo:  { type: Number, default: 0 }, // parte no facturada
       cliente:        { type: mongoose.Schema.Types.ObjectId, ref: "Cliente", default: null },
       clienteNombre:  { type: String, trim: true, default: "" }, // por si es cliente ocasional, sin catálogo
       asesor:         { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", default: null },
