@@ -92,7 +92,7 @@ export async function regresarMonta(req, res) {
 // nunca se confía en un total que mande el frontend.
 export async function marcarVendido(req, res) {
   try {
-    const { montoFacturado, montoEfectivo, fecha, clienteId, clienteNombre, asesorId, notas } = req.body;
+    const { montoFacturado, montoEfectivo, numeroFactura, fecha, clienteId, clienteNombre, asesorId, notas } = req.body;
 
     const facturado = Number(montoFacturado) || 0;
     const efectivo  = Number(montoEfectivo) || 0;
@@ -118,6 +118,7 @@ export async function marcarVendido(req, res) {
       importe,
       montoFacturado: facturado,
       ivaFacturado: iva,
+      numeroFactura: numeroFactura || "",
       montoEfectivo: efectivo,
       cliente: clienteId || null,
       clienteNombre: clienteNombre || "",

@@ -43,6 +43,7 @@ const montacargasSchema = new mongoose.Schema(
       importe:        { type: Number, default: 0 }, // total real cobrado = facturado(+IVA) + efectivo
       montoFacturado: { type: Number, default: 0 }, // subtotal SIN IVA de la parte facturada
       ivaFacturado:   { type: Number, default: 0 }, // IVA calculado sobre montoFacturado (16%)
+      numeroFactura:  { type: String, trim: true, default: "" }, // folio(s) de factura, ej. "A-1234" o "A-1234, A-1235"
       montoEfectivo:  { type: Number, default: 0 }, // parte no facturada
       cliente:        { type: mongoose.Schema.Types.ObjectId, ref: "Cliente", default: null },
       clienteNombre:  { type: String, trim: true, default: "" }, // por si es cliente ocasional, sin catálogo
