@@ -3,7 +3,7 @@ import { auth, requireRol } from "../middleware/auth.js";
 import {
   toMexDay, diffDays, calcFechaVencimiento,
   calcSaldo, calcRango, calcEstado, calcRiesgo, enriquecerFacturas,
-} from "./cartera.utils.js";
+} from "../utils/cartera.utils.js";
 
 const router = Router();
 const soloGerencia = requireRol("developer", "gerencia");
