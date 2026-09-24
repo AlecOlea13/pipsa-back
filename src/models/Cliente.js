@@ -8,6 +8,10 @@ const clienteSchema = new mongoose.Schema(
     email:            { type: String, trim: true, lowercase: true },
     direccion:        { type: String, trim: true },
     condicionesPago:  { type: String, trim: true },
+
+    // ── NUEVO: plazo de crédito en días (default para nuevas facturas) ──
+    diasCredito:      { type: Number, default: null },
+
     estatus:          { type: String, enum: ["activo", "inactivo"], default: "activo" },
     // Datos fiscales
     razonSocial:      { type: String, trim: true },
@@ -20,5 +24,7 @@ const clienteSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+clienteSchema.index({ rfc: 1 });
 
 export default mongoose.model("Cliente", clienteSchema);

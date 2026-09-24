@@ -127,44 +127,88 @@ router.get("/", auth, soloDeveloperYGerencia, async (req, res) => {
 
 // ════════════════════════════════════════
 // GET /api/resumen/cartera
-// Cartera agrupada por cliente
+// Retrocompatibilidad — el front viejo sigue funcionando.
+// Ahora calcula fechaVencimiento, diasVencidos y rango por factura.
 // ════════════════════════════════════════
 router.get("/cartera", auth, soloDeveloperYGerencia, async (req, res) => {
   try {
     const { default: CuentaCobrar } = await import("../models/CuentaCobrar.js");
+    const { default: Cliente }      = await import("../models/Cliente.js");
+    const {
+      toMexDay,
+      enriquecerFacturas,
+    } = await import("./cartera.utils.js");
 
-    const cartera = await CuentaCobrar.aggregate([
-      { $match: { estatus: { $in: ["pendiente", "parcial"] } } },
-      {
-        $group: {
-          _id:                "$nombreReceptor",
-          totalFacturado:     { $sum: { $ifNull: ["$total", 0] } },
-          totalCobrado:       { $sum: { $ifNull: ["$montoPagado", 0] } },
-          facturas:           { $sum: 1 },
-          facturasPendientes: { $sum: { $cond: [{ $eq: ["$estatus", "pendiente"] }, 1, 0] } },
-          facturasParciales:  { $sum: { $cond: [{ $eq: ["$estatus", "parcial"]  }, 1, 0] } },
-          ultimaEmision:      { $max: "$fechaEmision" },
-          documentos: {
-            $push: {
-              folioFactura: "$folioFactura",
-              total:        { $ifNull: ["$total", 0] },
-              montoPagado:  { $ifNull: ["$montoPagado", 0] },
-              estatus:      "$estatus",
-              fechaEmision: "$fechaEmision",
-            },
-          },
-        },
-      },
-      {
-        $addFields: {
-          saldoPendiente: { $subtract: ["$totalFacturado", "$totalCobrado"] },
-        },
-      },
-      { $sort: { saldoPendiente: -1 } },
-    ]);
+    const fechaCorte = toMexDay(new Date());
+
+    // Mapa RFC → diasCredito del modelo Cliente
+    const rfcs     = await CuentaCobrar.distinct("rfcReceptor", {
+      estatus: { $in: ["pendiente", "parcial"] },
+    });
+    const clientes = await Cliente.find({ rfc: { $in: rfcs } })
+      .select("rfc diasCredito")
+      .lean();
+    const mapaRfc  = Object.fromEntries(
+      clientes.map(c => [c.rfc, c.diasCredito ?? null])
+    );
+
+    // Traer todos los documentos pendientes/parciales
+    const docs = await CuentaCobrar.find({ estatus: { $in: ["pendiente", "parcial"] } })
+      .select("nombreReceptor rfcReceptor folioFactura uuid fechaEmision fechaVencimiento diasCredito total montoPagado estatus pagos fechaPago")
+      .lean();
+
+    // Enriquecer y agrupar por nombreReceptor
+    const mapaCliente = {};
+    for (const doc of docs) {
+      const diasCredCli = mapaRfc[doc.rfcReceptor] ?? null;
+      const [fact]      = enriquecerFacturas([doc], fechaCorte, diasCredCli);
+      const key         = doc.nombreReceptor ?? "Sin nombre";
+
+      if (!mapaCliente[key]) {
+        mapaCliente[key] = {
+          _id:                key,
+          totalFacturado:     0,
+          totalCobrado:       0,
+          facturas:           0,
+          facturasPendientes: 0,
+          facturasParciales:  0,
+          ultimaEmision:      null,
+          documentos:         [],
+        };
+      }
+
+      const g = mapaCliente[key];
+      g.totalFacturado += doc.total ?? 0;
+      g.totalCobrado   += doc.montoPagado ?? 0;
+      g.facturas       += 1;
+      if (doc.estatus === "pendiente") g.facturasPendientes += 1;
+      if (doc.estatus === "parcial")   g.facturasParciales  += 1;
+      if (!g.ultimaEmision || (doc.fechaEmision && doc.fechaEmision > g.ultimaEmision))
+        g.ultimaEmision = doc.fechaEmision;
+
+      g.documentos.push({
+        folioFactura:     doc.folioFactura,
+        total:            doc.total ?? 0,
+        montoPagado:      doc.montoPagado ?? 0,
+        estatus:          doc.estatus,
+        fechaEmision:     doc.fechaEmision,
+        // Campos nuevos que el front viejo ignora pero el nuevo aprovecha
+        fechaVencimiento: fact.fechaVencimiento,
+        diasVencidos:     fact.diasVencidos,
+        rango:            fact.rango,
+        estado:           fact.estado,
+        saldo:            fact.saldo,
+      });
+    }
+
+    const cartera = Object.values(mapaCliente)
+      .map(g => ({
+        ...g,
+        saldoPendiente: g.totalFacturado - g.totalCobrado,
+      }))
+      .sort((a, b) => b.saldoPendiente - a.saldoPendiente);
 
     const totalCartera = cartera.reduce((a, c) => a + c.saldoPendiente, 0);
-
     res.json({ totalCartera, clientes: cartera });
   } catch (e) {
     console.error("Error /api/resumen/cartera:", e);
