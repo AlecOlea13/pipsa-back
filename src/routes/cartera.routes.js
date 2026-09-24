@@ -27,7 +27,7 @@ function setCors(req, res) {
 }
 
 // Preflight para todas las rutas de cartera
-router.options("*", (req, res) => {
+router.options("/(.*)", (req, res) => {
   setCors(req, res);
   res.sendStatus(204);
 });
