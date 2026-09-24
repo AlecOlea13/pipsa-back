@@ -26,13 +26,7 @@ function setCors(req, res) {
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
 }
 
-// Preflight para todas las rutas de cartera
-router.options("/(.*)", (req, res) => {
-  setCors(req, res);
-  res.sendStatus(204);
-});
-
-// Middleware que inyecta CORS en cada respuesta
+// Middleware que inyecta CORS en cada respuesta (incluye preflight)
 router.use((req, res, next) => {
   setCors(req, res);
   next();
