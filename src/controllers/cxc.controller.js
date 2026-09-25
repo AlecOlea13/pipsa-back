@@ -13,11 +13,47 @@ export async function getCxcs(req, res) {
 export async function createCxc(req, res) {
   try {
     const body = { ...req.body };
+
+    // ── Validación de duplicados ────────────────────────────────
+    // 1. Si viene UUID, es la clave más confiable
+    if (body.uuid) {
+      const existeUUID = await CuentaCobrar.findOne({ uuid: body.uuid }).lean();
+      if (existeUUID) {
+        return res.status(409).json({
+          message: `Esta factura ya fue registrada (UUID ${body.uuid.slice(0, 8)}…)`,
+          duplicado: true,
+          existente: { _id: existeUUID._id, folioFactura: existeUUID.folioFactura, estatus: existeUUID.estatus },
+        });
+      }
+    }
+
+    // 2. Sin UUID: verificar por folio + RFC receptor + total
+    //    (cubre facturas manuales o XML sin timbre)
+    if (!body.uuid && body.folioFactura && body.rfcReceptor) {
+      const existeFolio = await CuentaCobrar.findOne({
+        uuid: { $in: [null, ""] },          // solo buscar entre las sin UUID
+        folioFactura: body.folioFactura,
+        rfcReceptor:  body.rfcReceptor,
+        total:        body.total,
+      }).lean();
+      if (existeFolio) {
+        return res.status(409).json({
+          message: `Ya existe una factura con el folio ${body.folioFactura} para este cliente con el mismo importe.`,
+          duplicado: true,
+          existente: { _id: existeFolio._id, folioFactura: existeFolio.folioFactura, estatus: existeFolio.estatus },
+        });
+      }
+    }
+    // ── Fin validación ──────────────────────────────────────────
+
     const cxc = new CuentaCobrar(body);
     await cxc.save();
     res.status(201).json(cxc);
   } catch (e) {
-    if (e.code === 11000) return res.status(409).json({ message: "Esta factura ya fue registrada (UUID duplicado)" });
+    // Captura el índice único de MongoDB como segunda línea de defensa
+    if (e.code === 11000) {
+      return res.status(409).json({ message: "Esta factura ya fue registrada (UUID duplicado)" });
+    }
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
@@ -47,7 +83,7 @@ export async function cobrarCxc(req, res) {
     const { fechaPago, complementoPago, comentarios, montoParcial } = req.body;
     const cxc = await CuentaCobrar.findById(req.params.id);
     if (!cxc) return res.status(404).json({ message: "Cuenta por cobrar no encontrada" });
-    if (cxc.estatus === "cobrada") return res.status(400).json({ message: "Esta factura ya está cobrada" });
+    if (cxc.estatus === "cobrada")   return res.status(400).json({ message: "Esta factura ya está cobrada" });
     if (cxc.estatus === "cancelada") return res.status(400).json({ message: "Esta factura está cancelada" });
 
     const fecha = fechaPago ? new Date(fechaPago) : new Date();
@@ -55,7 +91,6 @@ export async function cobrarCxc(req, res) {
 
     if (monto <= 0) return res.status(400).json({ message: "El monto debe ser mayor a 0" });
 
-    // Registrar pago en historial
     cxc.pagos.push({
       monto,
       fechaPago: fecha,
@@ -68,7 +103,6 @@ export async function cobrarCxc(req, res) {
     if (complementoPago) cxc.complementoPago = complementoPago;
     if (comentarios)     cxc.comentarios     = comentarios;
 
-    // Determinar estatus según lo pagado
     if (cxc.montoPagado >= cxc.total) {
       cxc.montoPagado = cxc.total;
       cxc.estatus     = "cobrada";
@@ -227,14 +261,10 @@ export async function cobrarMultiple(req, res) {
       await cxc.save();
 
       clienteNombre = cxc.nombreReceptor ?? "—";
-      facturasEmail.push({
-        folio: cxc.folioFactura ?? cxc.uuid?.slice(0, 8) ?? "—",
-        total: cxc.total,
-      });
+      facturasEmail.push({ folio: cxc.folioFactura ?? cxc.uuid?.slice(0, 8) ?? "—", total: cxc.total });
 
       resultados.push({
-        id,
-        ok: true,
+        id, ok: true,
         folioFactura: cxc.folioFactura,
         nombreReceptor: cxc.nombreReceptor,
         total: cxc.total,
