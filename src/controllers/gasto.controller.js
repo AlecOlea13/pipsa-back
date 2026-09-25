@@ -130,7 +130,6 @@ export async function agregarPagoParcial(req, res) {
     if (!gasto) return res.status(404).json({ message: "Gasto no encontrado" });
     if (gasto.estatus === "cancelada") return res.status(400).json({ message: "No se puede pagar una factura cancelada" });
 
-    // Guardar estatus previo para detectar si es un complemento
     const estatusAnterior = gasto.estatus;
 
     const nuevoPago = {
@@ -147,7 +146,6 @@ export async function agregarPagoParcial(req, res) {
     const quedaPendiente = gasto.total - totalPagado;
 
     if (estatusAnterior === "pagado") {
-      // Es un complemento sobre una factura ya pagada — mantener estatus pagado
       gasto.estatus = "pagado";
     } else if (quedaPendiente <= 0.01) {
       gasto.estatus         = "pagado";
@@ -161,9 +159,9 @@ export async function agregarPagoParcial(req, res) {
     await gasto.save();
 
     try {
-      const emailProveedor  = gasto.proveedor?.email ?? null;
-      const esComplemento   = estatusAnterior === "pagado";
-      const esCompleto      = gasto.estatus === "pagado";
+      const emailProveedor = gasto.proveedor?.email ?? null;
+      const esComplemento  = estatusAnterior === "pagado";
+      const esCompleto     = gasto.estatus === "pagado";
 
       await enviarEmailPago({
         tipo:          "fiscal",
@@ -184,6 +182,45 @@ export async function agregarPagoParcial(req, res) {
 
     res.json(gasto);
   } catch (e) {
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+}
+
+// ── Eliminar un pago del historial (solo developer) ──────────
+export async function eliminarPagoParcial(req, res) {
+  try {
+    const { id, pagoId } = req.params;
+
+    const gasto = await Gasto.findById(id)
+      .populate("asesor",    "nombre")
+      .populate("proveedor", "nombre email");
+    if (!gasto) return res.status(404).json({ message: "Gasto no encontrado" });
+
+    const pagoIdx = gasto.pagos.findIndex(p => p._id.toString() === pagoId);
+    if (pagoIdx === -1) return res.status(404).json({ message: "Pago no encontrado" });
+
+    // Quitar el pago
+    gasto.pagos.splice(pagoIdx, 1);
+
+    // Recalcular montoPagado y estatus
+    const totalPagado = gasto.pagos.reduce((acc, p) => acc + p.monto, 0);
+
+    if (totalPagado <= 0) {
+      gasto.montoPagado = 0;
+      gasto.estatus     = "pendiente";
+      gasto.fechaPago   = null;
+    } else if (totalPagado >= gasto.total - 0.01) {
+      gasto.montoPagado = gasto.total;
+      gasto.estatus     = "pagado";
+    } else {
+      gasto.montoPagado = totalPagado;
+      gasto.estatus     = "parcial";
+    }
+
+    await gasto.save();
+    res.json(gasto);
+  } catch (e) {
+    console.error("Error eliminando pago:", e);
     res.status(500).json({ message: "Error en el servidor" });
   }
 }

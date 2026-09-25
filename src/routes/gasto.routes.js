@@ -9,19 +9,21 @@ import {
   cancelarGasto,
   pagarGastoMultiple,
   agregarPagoParcial,
+  eliminarPagoParcial,
 } from "../controllers/gasto.controller.js";
 
 const router = Router();
 const canAccess = requireRol("developer", "gerencia", "oficina");
 const canCancel = requireRol("developer", "gerencia", "oficina");
 
-router.get("/",                    auth, canAccess, getGastos);
-router.post("/",                   auth, canAccess, createGasto);
-router.post("/pagar-multiple",     auth, canAccess, pagarGastoMultiple);
-router.put("/:id",                 auth, canAccess, updateGasto);
-router.delete("/:id",              auth, requireRol("developer", "gerencia"), deleteGasto);
-router.post("/:id/pagar",          auth, canAccess, pagarGasto);
-router.post("/:id/pagar-parcial",  auth, canAccess, agregarPagoParcial);
-router.post("/:id/cancelar",       auth, canCancel, cancelarGasto);
+router.get("/",                          auth, canAccess,                    getGastos);
+router.post("/",                         auth, canAccess,                    createGasto);
+router.post("/pagar-multiple",           auth, canAccess,                    pagarGastoMultiple);
+router.put("/:id",                       auth, canAccess,                    updateGasto);
+router.delete("/:id",                    auth, requireRol("developer", "gerencia"), deleteGasto);
+router.post("/:id/pagar",               auth, canAccess,                    pagarGasto);
+router.post("/:id/pagar-parcial",       auth, canAccess,                    agregarPagoParcial);
+router.post("/:id/cancelar",            auth, canCancel,                    cancelarGasto);
+router.delete("/:id/pagos/:pagoId",     auth, requireRol("developer"),      eliminarPagoParcial);
 
 export default router;
