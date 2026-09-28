@@ -229,7 +229,7 @@ router.get("/", auth, soloGerencia, async (req, res) => {
     const clisConVenc = new Set(filtradas.filter(f => f.diasVencidos > 0).map(f => f.nombreReceptor)).size;
 
     // Rangos
-    const rangos = { vigente: 0, "1_30": 0, "31_60": 0, "61_90": 0, mas_90: 0, sin_definir: 0 };
+    const rangos = { vigente: 0, por_vencer: 0, vencida_30: 0, vencida_60: 0, mas_60: 0, sin_definir: 0 };
     for (const f of filtradas) rangos[f.rango] = (rangos[f.rango] ?? 0) + f.saldo;
 
     res.json({
@@ -246,7 +246,7 @@ router.get("/", auth, soloGerencia, async (req, res) => {
         facturasVencidas: factsVenc.length,
         facturasSinFecha: filtradas.filter(f => f.sinFechaVencimiento).length,
         promPondDiasVencidos: promPond,
-        saldoMas90:       rangos["mas_90"],
+        saldoMas90:       rangos["mas_60"],
       },
       rangos,
       clientes: paginated,
@@ -436,7 +436,7 @@ router.get("/exportar/pdf-data", auth, soloGerencia, async (req, res) => {
     const cartTotal  = rows.reduce((a, f) => a + f.saldo, 0);
     const cartVenc   = rows.filter(f => f.diasVencidos > 0).reduce((a, f) => a + f.saldo, 0);
     const cartVig    = rows.filter(f => f.diasVencidos <= 0 && !f.sinFechaVencimiento).reduce((a, f) => a + f.saldo, 0);
-    const rangos     = { vigente: 0, "1_30": 0, "31_60": 0, "61_90": 0, mas_90: 0, sin_definir: 0 };
+    const rangos     = { vigente: 0, por_vencer: 0, vencida_30: 0, vencida_60: 0, mas_60: 0, sin_definir: 0 };
     for (const f of rows) rangos[f.rango] = (rangos[f.rango] ?? 0) + f.saldo;
 
     res.json({

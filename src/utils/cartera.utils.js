@@ -47,31 +47,41 @@ export function calcSaldo(total, montoPagado) {
   return saldo < 0.005 && saldo > -0.005 ? 0 : Math.max(0, saldo);
 }
 
-/** Rango de antigüedad según días vencidos */
+/** Rango de antigüedad según días vencidos.
+ *  Política: los primeros 30 días post-vencimiento se consideran VIGENTE (tolerancia).
+ *  De 31 a 60 días → POR_VENCER (advertencia).
+ *  Más de 60 días  → VENCIDA (1–30d, 31–60d, +60d).
+ */
 export function calcRango(diasVencidos, sinFechaVencimiento) {
   if (sinFechaVencimiento)  return "sin_definir";
-  if (diasVencidos <= 0)    return "vigente";
-  if (diasVencidos <= 30)   return "1_30";
-  if (diasVencidos <= 60)   return "31_60";
-  if (diasVencidos <= 90)   return "61_90";
-  return "mas_90";
+  if (diasVencidos <= 0)    return "vigente";       // no ha vencido aún
+  if (diasVencidos <= 30)   return "vigente";       // tolerancia 1er mes
+  if (diasVencidos <= 60)   return "por_vencer";    // advertencia 2do mes
+  if (diasVencidos <= 90)   return "vencida_30";    // vencida 1–30 días
+  if (diasVencidos <= 120)  return "vencida_60";    // vencida 31–60 días
+  return "mas_60";                                  // vencida +60 días
 }
 
-/** Estado calculado de la factura */
+/** Estado calculado de la factura.
+ *  Vencida = más de 60 días después del vencimiento.
+ */
 export function calcEstado(saldo, diasVencidos, sinFechaVencimiento, tienePagos) {
   if (saldo <= 0) return "PAGADA";
   if (sinFechaVencimiento) return "VENCIMIENTO_POR_DEFINIR";
-  if (diasVencidos > 0) return tienePagos ? "PARCIAL_VENCIDA" : "VENCIDA";
+  if (diasVencidos > 60) return tienePagos ? "PARCIAL_VENCIDA" : "VENCIDA";
+  if (diasVencidos > 30) return tienePagos ? "PARCIAL_POR_VENCER" : "POR_VENCER";
   return tienePagos ? "PARCIAL_VIGENTE" : "VIGENTE";
 }
 
-/** Nivel de riesgo del cliente según máximo atraso */
+/** Nivel de riesgo del cliente según máximo atraso.
+ *  Alineado con la política: vencida real = >60 días.
+ */
 export function calcRiesgo(maxDiasVencidos, sinFechaVencimiento) {
   if (sinFechaVencimiento) return "por_definir";
-  if (maxDiasVencidos <= 0) return "bajo";
-  if (maxDiasVencidos <= 30) return "medio";
-  if (maxDiasVencidos <= 90) return "alto";
-  return "critico";
+  if (maxDiasVencidos <= 30) return "bajo";      // tolerancia
+  if (maxDiasVencidos <= 60) return "medio";     // por vencer
+  if (maxDiasVencidos <= 120) return "alto";     // vencida reciente
+  return "critico";                               // vencida grave
 }
 
 /**
