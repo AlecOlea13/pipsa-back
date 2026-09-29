@@ -11,6 +11,9 @@ const EF_USER    = process.env.EF_USER    ?? "";
 const EF_TOKEN   = process.env.EF_TOKEN   ?? "";
 const EF_API_KEY = process.env.EF_API_KEY ?? "";
 
+// ── Modo: "debug" para pruebas, cambiar a process.env.EF_MODO cuando vayan a producción ──
+const EF_MODO = "debug";
+
 const puedeFacturar = requireRol("developer", "gerencia", "oficina");
 
 const REGIMEN_MAP = {
@@ -75,7 +78,6 @@ async function llamarEF(endpoint, body) {
   return res.json();
 }
 
-// ── Helper específico para REP: usa el endpoint dedicado ──
 async function llamarEFRep(body) {
   const credentials = Buffer.from(`${EF_USER}:${EF_TOKEN}`).toString("base64");
   const res = await fetch("https://api.enlacefiscal.com/v6/generarReciboElectronicoPago", {
@@ -241,7 +243,10 @@ router.post("/productos", auth, requireRol("developer", "gerencia"), async (req,
       return res.status(400).json({ message: "Clave SAT y descripción son requeridas" });
     }
     const producto = await ProductoFiscal.create({
-      claveSAT, claveUnidad: claveUnidad || "E48", unidad: unidad || "Unidad de servicio", descripcion,
+      claveSAT,
+      claveUnidad: claveUnidad || "E48",
+      unidad:      unidad      || "Unidad de servicio",
+      descripcion,
     });
     res.status(201).json(producto);
   } catch (e) { res.status(500).json({ message: e.message }); }
@@ -286,6 +291,12 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       return res.status(400).json({ message: "Faltan datos obligatorios: receptor y partidas" });
     }
 
+    // ── FIX 1: Validar CP obligatorio ──────────────────────────
+    if (!receptor.cp) {
+      return res.status(400).json({ message: "El código postal fiscal del receptor es obligatorio" });
+    }
+
+    // ── FIX 2: Usar régimen real del receptor ──────────────────
     const regimenMapeado = normalizarRegimen(receptor.regimenFiscal);
     const usoCfdiMapeado = normalizarUsoCfdi(receptor.usoCfdi);
 
@@ -304,7 +315,7 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       CFDi: {
         versionCFDi:  "4.0",
         versionEF:    "6.5",
-        modo:         "debug",
+        modo:         EF_MODO,
         serie,
         folioInterno: String(folio),
         fechaEmision: fecha,
@@ -318,15 +329,15 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
         DatosDePago: {
           metodoDePago: metodoPago,
           formaDePago:  formaPago,
-          ...(condicionesPago ? { condicionesDePago: condicionesPago } : {}),
-          ...(fechaVencimiento ? { fechaVencimiento } : {}),
+          ...(condicionesPago   ? { condicionesDePago: condicionesPago } : {}),
+          ...(fechaVencimiento  ? { fechaVencimiento }                  : {}),
         },
         Receptor: {
           rfc:             receptor.rfc,
           nombre:          receptor.nombre.toUpperCase(),
-          regimenFiscal:   "601",
+          regimenFiscal:   regimenMapeado,   // ── FIX 2 aplicado ──
           usoCfdi:         usoCfdiMapeado,
-          DomicilioFiscal: { cp: receptor.cp ?? "45235" },
+          DomicilioFiscal: { cp: receptor.cp }, // ── FIX 1 aplicado (sin fallback) ──
         },
         Partidas: partidasEF,
         Impuestos: {
@@ -382,8 +393,8 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
         rfc:           receptor.rfc,
         nombre:        receptor.nombre.toUpperCase(),
         regimenFiscal: receptor.regimenFiscal ?? "601",
-        usoCfdi:       receptor.usoCfdi ?? "G03",
-        cp:            receptor.cp ?? "45235",
+        usoCfdi:       receptor.usoCfdi       ?? "G03",
+        cp:            receptor.cp,
       },
       metodoPago,
       formaPago,
@@ -420,23 +431,43 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
     if (!factura) return res.status(404).json({ message: "Factura no encontrada" });
     if (factura.estatus === "cancelada") return res.status(400).json({ message: "La factura está cancelada" });
 
+    // ── FIX 3: Validar que no exceda el saldo pendiente ────────
+    const saldoPendiente = parseFloat((factura.total - factura.totalPagado).toFixed(2));
+    if (montoPagado > saldoPendiente + 0.01) {
+      return res.status(400).json({
+        message: `El monto ($${montoPagado}) excede el saldo pendiente ($${saldoPendiente})`,
+      });
+    }
+
+    // ── FIX 4: Validar que sea factura PPD ─────────────────────
+    if (factura.metodoPago !== "PPD") {
+      return res.status(400).json({ message: "Solo se puede emitir REP para facturas con método de pago PPD" });
+    }
+
     const fecha = fechaPago
       ? new Date(fechaPago).toISOString().replace("T", " ").slice(0, 19)
       : new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString().replace("T", " ").slice(0, 19);
 
-    const folioRep       = `RPA-${Date.now()}`;
     const folioNumerico  = Date.now() % 1000000;
     const monto          = parseFloat(montoPagado.toFixed(2));
-    const saldoAnterior  = parseFloat((factura.total - factura.totalPagado).toFixed(2));
+    const saldoAnterior  = saldoPendiente;
     const saldoInsoluto  = parseFloat(Math.max(0, saldoAnterior - monto).toFixed(2));
     const base           = parseFloat((monto / 1.16).toFixed(2));
     const importeIva     = parseFloat((monto - base).toFixed(2));
+
+    // ── FIX 5: Parcialidad correcta ────────────────────────────
+    const repsPrevios = await Factura.countDocuments({
+      tipo:               "rep",
+      facturaRelacionada: facturaId,
+      estatus:            { $ne: "cancelada" },
+    });
+    const numParcialidad = repsPrevios + 1;
 
     const body = {
       CFDi: {
         versionCFDi:  "4.0",
         versionEF:    "6.5",
-        modo:         "debug",
+        modo:         EF_MODO,
         serie:        "RPA",
         folioInterno: folioNumerico,
         fechaEmision: fecha,
@@ -444,7 +475,7 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
         Receptor: {
           rfc:             factura.receptor.rfc,
           nombre:          factura.receptor.nombre,
-          regimenFiscal:   "601",
+          regimenFiscal:   normalizarRegimen(factura.receptor.regimenFiscal), // ── FIX 2 en REP ──
           usoCfdi:         "pagos",
           DomicilioFiscal: { cp: factura.receptor.cp },
         },
@@ -467,7 +498,7 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
               folioInterno:      factura.folio.replace(`${factura.serie}-`, ""),
               tipoMoneda:        factura.moneda ?? "MXN",
               equivalencia:      "1",
-              numParcialidad:    String(factura.totalPagado > 0 ? 2 : 1),
+              numParcialidad:    String(numParcialidad), // ── FIX 5 aplicado ──
               saldoAnterior:     saldoAnterior.toFixed(2),
               importePagado:     monto.toFixed(2),
               impoSaldoInsoluto: saldoInsoluto.toFixed(2),
@@ -516,17 +547,17 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
     });
 
     const rep = await Factura.create({
-      folio:       `RPA-${ack.folioInterno}`,
-      serie:       "RPA",
-      uuid:        ack.folioFiscalUUID,
-      tipo:        "rep",
-      estatus:     "vigente",
-      moneda:      factura.moneda ?? "MXN",
-      subtotal:    0,
-      total:       monto,
-      totalPagado: monto,
-      receptor:    factura.receptor,
-      metodoPago:  "PUE",
+      folio:              `RPA-${ack.folioInterno}`,
+      serie:              "RPA",
+      uuid:               ack.folioFiscalUUID,
+      tipo:               "rep",
+      estatus:            "vigente",
+      moneda:             factura.moneda ?? "MXN",
+      subtotal:           0,
+      total:              monto,
+      totalPagado:        monto,
+      receptor:           factura.receptor,
+      metodoPago:         "PUE",
       formaPago,
       fechaEmision:       new Date(fecha),
       urlPdf:             ack.descargaArchivoPDF ?? null,
@@ -559,7 +590,7 @@ router.post("/:id/cancelar", auth, puedeFacturar, async (req, res) => {
 
     const body = {
       Solicitud: {
-        modo:   "debug",
+        modo:   EF_MODO,
         rfc:    EF_RFC,
         accion: "cancelarCfdi",
         CFDi: {
@@ -570,7 +601,7 @@ router.post("/:id/cancelar", auth, puedeFacturar, async (req, res) => {
           ...(motivo === "01" && uuidSustitucion ? {
             ComprobanteSustitucion: {
               serie: factura.serie ?? "MA",
-              folio: parseInt(uuidSustitucion, 10),
+              folio: uuidSustitucion, // ── FIX: no convertir UUID a número ──
             },
           } : {}),
         },
@@ -589,6 +620,23 @@ router.post("/:id/cancelar", auth, puedeFacturar, async (req, res) => {
         message: ack?.mensajeError?.descripcionError ?? "Error al cancelar",
         detalle: efRes,
       });
+    }
+
+    // ── FIX 6: Si es un REP, revertir el pago en la factura original ──
+    if (factura.tipo === "rep" && factura.facturaRelacionada) {
+      const facturaOriginal = await Factura.findById(factura.facturaRelacionada);
+      if (facturaOriginal) {
+        const nuevoTotal   = parseFloat(Math.max(0, facturaOriginal.totalPagado - factura.total).toFixed(2));
+        const nuevoEstatus = nuevoTotal <= 0
+          ? "sin_pago"
+          : nuevoTotal >= facturaOriginal.total
+            ? "pagada"
+            : "parcial";
+        await Factura.findByIdAndUpdate(factura.facturaRelacionada, {
+          totalPagado: nuevoTotal,
+          estatusPago: nuevoEstatus,
+        });
+      }
     }
 
     await Factura.findByIdAndUpdate(req.params.id, { estatus: "cancelada" });
@@ -622,9 +670,11 @@ router.post("/:id/enviar-correo", auth, puedeFacturar, async (req, res) => {
     const factura = await Factura.findById(req.params.id);
     if (!factura) return res.status(404).json({ message: "No encontrada" });
 
+    if (!email) return res.status(400).json({ message: "El correo es obligatorio" });
+
     const body = {
       EnviarCFDI: {
-        modo:    "debug",
+        modo:    EF_MODO,
         rfc:     EF_RFC,
         uuid:    factura.uuid,
         Correos: [email],
@@ -632,6 +682,12 @@ router.post("/:id/enviar-correo", auth, puedeFacturar, async (req, res) => {
     };
 
     const efRes = await llamarEF("enviarCfdi", body);
+
+    // ── FIX 7: Validar respuesta antes de declarar ok ──────────
+    if (efRes.AckEnlaceFiscal?.estatusDocumento !== "aceptado" && efRes.error) {
+      return res.status(400).json({ message: efRes?.mensaje ?? "Error al enviar correo", detalle: efRes });
+    }
+
     res.json({ ok: true, efRes });
   } catch (e) { res.status(500).json({ message: e.message }); }
 });
