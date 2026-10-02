@@ -16,53 +16,19 @@ const EF_MODO = "debug";
 
 const puedeFacturar = requireRol("developer", "gerencia", "oficina");
 
-const REGIMEN_MAP = {
-  "601": "general_ley_personas_morales",
-  "603": "personas_morales_fines_no_lucrativos",
-  "605": "sueldos_salarios",
-  "606": "arrendamiento",
-  "608": "demas_ingresos",
-  "610": "residentes_extranjero",
-  "611": "ingresos_dividendos",
-  "612": "personas_fisicas_actividades_empresariales",
-  "614": "ingresos_intereses",
-  "616": "sin_obligaciones_fiscales",
-  "620": "sociedades_cooperativas",
-  "621": "incorporacion_fiscal",
-  "622": "actividades_agricolas",
-  "623": "opcional_grupos_sociedades",
-  "624": "coordinados",
-  "625": "actividades_empresariales_plataformas",
-  "626": "simplificado_confianza",
-};
+// ── Catálogo SAT — se envían las claves directamente a Enlace Fiscal ──
+const REGIMENES_VALIDOS = new Set([
+  "601", "603", "605", "606", "607", "608",
+  "610", "611", "612", "614", "615", "616",
+  "620", "621", "622", "623", "624", "625", "626",
+]);
 
-const USO_CFDI_MAP = {
-  "G01": "adquisicion_mercancias",
-  "G02": "devolucion_desc_bonif",
-  "G03": "gastos",
-  "I01": "construcciones",
-  "I02": "mobilario",
-  "I03": "equipo_transporte",
-  "I04": "equipo_computo",
-  "I05": "herramientas",
-  "I06": "comunicaciones_telefonicas",
-  "I07": "comunicaciones_satelitales",
-  "I08": "otra_maquinaria",
-  "D01": "gastos_medicos",
-  "D02": "gastos_medicos_incapacidad",
-  "D03": "gastos_funerales",
-  "D04": "donativos",
-  "D05": "intereses_hipotecarios",
-  "D06": "aportaciones_sar",
-  "D07": "primas_seguro_gastos_medicos",
-  "D08": "gastos_transportacion_escolar",
-  "D09": "depositos_ahorro",
-  "D10": "colegiaturas",
-  "P01": "por_definir",
-  "S01": "sin_efectos_fiscales",
-  "CP01": "pagos",
-  "CN01": "nomina",
-};
+const USOS_CFDI_VALIDOS = new Set([
+  "G01", "G02", "G03",
+  "I01", "I02", "I03", "I04", "I05", "I06", "I07", "I08",
+  "D01", "D02", "D03", "D04", "D05", "D06", "D07", "D08", "D09", "D10",
+  "S01", "CP01", "CN01",
+]);
 
 async function llamarEF(endpoint, body) {
   const credentials = Buffer.from(`${EF_USER}:${EF_TOKEN}`).toString("base64");
@@ -135,22 +101,41 @@ function calcularTotales(partidas) {
   };
 }
 
+// Devuelve la clave SAT de 3 dígitos (ej. "601").
+// Acepta: "601", "601 - General de Ley…", "(601)", "601 General…"
+// Lanza Error HTTP-400-friendly si el valor es inválido o vacío.
 function normalizarRegimen(valor) {
-  if (!valor) return "general_ley_personas_morales";
-  const match = valor.match(/\((\d+)\)/);
-  if (match) return REGIMEN_MAP[match[1]] ?? "general_ley_personas_morales";
-  if (Object.values(REGIMEN_MAP).includes(valor)) return valor;
-  if (REGIMEN_MAP[valor]) return REGIMEN_MAP[valor];
-  return "general_ley_personas_morales";
+  const texto = String(valor ?? "").trim();
+  if (!texto) {
+    throw new Error("El régimen fiscal del receptor es obligatorio.");
+  }
+  const match = texto.match(/\b(\d{3})\b/);
+  const clave = match?.[1] ?? "";
+  if (!REGIMENES_VALIDOS.has(clave)) {
+    throw new Error(
+      `Régimen fiscal inválido: "${texto}". Selecciona una clave válida del catálogo SAT (ej. 601, 626).`
+    );
+  }
+  return clave;
 }
 
+// Devuelve la clave SAT de uso CFDI (ej. "G03").
+// Acepta: "G03", "G03 - Gastos…", "(G03)", etc.
+// Lanza Error HTTP-400-friendly si el valor es inválido o vacío.
 function normalizarUsoCfdi(valor) {
-  if (!valor) return "gastos";
-  const match = valor.match(/\(([A-Z0-9]+)\)/);
-  if (match) return USO_CFDI_MAP[match[1]] ?? "gastos";
-  if (Object.values(USO_CFDI_MAP).includes(valor)) return valor;
-  if (USO_CFDI_MAP[valor]) return USO_CFDI_MAP[valor];
-  return "gastos";
+  const texto = String(valor ?? "").trim();
+  if (!texto) {
+    throw new Error("El uso de CFDI del receptor es obligatorio.");
+  }
+  // Extraer código: letras mayúsculas + dígitos, 2-4 chars
+  const match = texto.match(/\b([A-Z]{1,2}\d{2})\b/);
+  const clave = match?.[1] ?? texto.toUpperCase();
+  if (!USOS_CFDI_VALIDOS.has(clave)) {
+    throw new Error(
+      `Uso de CFDI inválido: "${texto}". Selecciona una clave válida del catálogo SAT (ej. G03, S01).`
+    );
+  }
+  return clave;
 }
 
 // ════════════════════════════════════════
@@ -205,8 +190,8 @@ router.get("/clientes/buscar", auth, puedeFacturar, async (req, res) => {
     res.json(clientes.map(c => ({
       rfc:           c.rfc           ?? "",
       nombreFiscal:  c.razonSocial   ?? c.nombre ?? "",
-      regimenFiscal: c.regimenFiscal ?? "601",
-      usoCfdi:       c.usoCFDI       ?? "G03",
+      regimenFiscal: c.regimenFiscal ?? "",
+      usoCfdi:       c.usoCFDI       ?? "",
       cp:            c.codigoPostal  ?? "",
       email:         c.emailFiscal   ?? c.email ?? "",
     })));
@@ -285,7 +270,7 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       notas, clientePipsaId,
     } = req.body;
 
-    console.log("RECEPTOR RECIBIDO:", JSON.stringify(receptor, null, 2));
+
 
     if (!receptor?.rfc || !receptor?.nombre || !partidas?.length) {
       return res.status(400).json({ message: "Faltan datos obligatorios: receptor y partidas" });
@@ -296,12 +281,27 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       return res.status(400).json({ message: "El código postal fiscal del receptor es obligatorio" });
     }
 
-    // ── FIX 2: Usar régimen real del receptor ──────────────────
-    const regimenMapeado = normalizarRegimen(receptor.regimenFiscal);
-    const usoCfdiMapeado = normalizarUsoCfdi(receptor.usoCfdi);
+    // ── Normalizar régimen y uso CFDI — devuelve clave SAT directa ──
+    let regimenMapeado, usoCfdiMapeado;
+    try {
+      regimenMapeado = normalizarRegimen(receptor.regimenFiscal);
+    } catch (e) {
+      return res.status(400).json({ message: e.message });
+    }
+    try {
+      usoCfdiMapeado = normalizarUsoCfdi(receptor.usoCfdi);
+    } catch (e) {
+      return res.status(400).json({ message: e.message });
+    }
 
-    console.log("REGIMEN MAPEADO:", regimenMapeado);
-    console.log("USO CFDI MAPEADO:", usoCfdiMapeado);
+    // Log sanitizado — sin token, sin API key, sin datos personales completos
+    const ocultarRfc = (rfc) => rfc ? rfc.slice(0, 4) + "****" : "—";
+    console.log("RECEPTOR EF:", {
+      rfc:           ocultarRfc(receptor.rfc),
+      regimenFiscal: regimenMapeado,
+      usoCfdi:       usoCfdiMapeado,
+      cp:            receptor.cp,
+    });
 
     const { subtotal, descuentos, base, iva, total } = calcularTotales(partidas);
     const partidasEF = construirPartidas(partidas);
@@ -362,7 +362,7 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       },
     };
 
-    console.log("BODY EF:", JSON.stringify(body, null, 2));
+
 
     const efRes = await llamarEF("generarCfdi", body);
 
@@ -392,8 +392,8 @@ router.post("/timbrar", auth, puedeFacturar, async (req, res) => {
       receptor: {
         rfc:           receptor.rfc,
         nombre:        receptor.nombre.toUpperCase(),
-        regimenFiscal: receptor.regimenFiscal ?? "601",
-        usoCfdi:       receptor.usoCfdi       ?? "G03",
+        regimenFiscal: regimenMapeado,
+        usoCfdi:       usoCfdiMapeado,
         cp:            receptor.cp,
       },
       metodoPago,
@@ -463,6 +463,14 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
     });
     const numParcialidad = repsPrevios + 1;
 
+    // Validar régimen antes de construir el body del REP
+    let regimenRep;
+    try {
+      regimenRep = normalizarRegimen(factura.receptor.regimenFiscal);
+    } catch (e) {
+      return res.status(400).json({ message: e.message });
+    }
+
     const body = {
       CFDi: {
         versionCFDi:  "4.0",
@@ -475,8 +483,8 @@ router.post("/rep", auth, puedeFacturar, async (req, res) => {
         Receptor: {
           rfc:             factura.receptor.rfc,
           nombre:          factura.receptor.nombre,
-          regimenFiscal:   normalizarRegimen(factura.receptor.regimenFiscal), // ── FIX 2 en REP ──
-          usoCfdi:         "pagos",
+          regimenFiscal:   regimenRep, // clave SAT directa (ej. "601")
+          usoCfdi:         "CP01", // uso fijo para complemento de pago
           DomicilioFiscal: { cp: factura.receptor.cp },
         },
         ComplementoPago: [{
