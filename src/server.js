@@ -35,13 +35,15 @@ import carteraRouter from "./routes/cartera.routes.js";
 import encuestaRoutes from "./routes/encuesta.routes.js";
 import hallazgoRoutes       from "./routes/hallazgo.routes.js";
 import reporteClienteRoutes from "./routes/reporteCliente.routes.js";
+import reporteVentasRoutes  from "./routes/reporteVentas.routes.js";
 import { seedHallazgos }    from "./controllers/hallazgo.controller.js";
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
 dns.setDefaultResultOrder('ipv4first');
 
 const app = express();
-app.use(cors({
+
+const corsOptions = {
   origin: [
     "https://last-to-do-u9vd.vercel.app",
     "http://localhost:5173"
@@ -49,21 +51,26 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}));
+};
+
+app.use(cors(corsOptions));
+
+// Preflight explícito para todas las rutas — necesario en Vercel serverless
+app.options('*', cors(corsOptions));
+
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(morgan('dev'));
 
 app.get('/', (req, res) => res.json({ ok: true, name: 'Control Pipsa API' }));
 
-// ── Proxy de descarga para PDFs de Cloudinary ─────────────────────────────────
+// ── Proxy de descarga para PDFs de Cloudinary ────────────────
 app.get('/api/descargar', (req, res) => {
   const { url, nombre } = req.query;
   if (!url) return res.status(400).json({ message: "url requerida" });
 
   try {
     const urlObj = new URL(url);
-    // Solo permitir descargas de Cloudinary
     if (!urlObj.hostname.includes("cloudinary.com")) {
       return res.status(403).json({ message: "Dominio no permitido" });
     }
@@ -95,9 +102,9 @@ app.use("/api/pendientes", pendienteRoutes);
 app.use("/api/facturacion", facturacionRoutes);
 app.use('/api/cotizaciones', cotizacionRoutes);
 app.use('/api/asesores', asesorRoutes);
-app.use("/api/refacciones",       refaccionRoutes);
-app.use("/api/tipos-servicio",    tipoServicioRoutes);
-app.use("/api/ordenes-refaccion", ordenRefaccionRoutes);
+app.use("/api/refacciones",        refaccionRoutes);
+app.use("/api/tipos-servicio",     tipoServicioRoutes);
+app.use("/api/ordenes-refaccion",  ordenRefaccionRoutes);
 app.use("/api/refacciones-usadas", refaccionUsadaRoutes);
 app.use("/api/gastos", gastoRoutes);
 app.use("/api/gastos-no-fiscales", gastoNoFiscalRoutes);
@@ -113,6 +120,7 @@ app.use("/api/cartera", carteraRouter);
 app.use("/api/encuestas", encuestaRoutes);
 app.use("/api/hallazgos",        hallazgoRoutes);
 app.use("/api/reportes-cliente", reporteClienteRoutes);
+app.use("/api/reportes",         reporteVentasRoutes);
 
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) console.error('❌ Falta MONGO_URI en el .env');

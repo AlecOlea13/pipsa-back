@@ -1,4 +1,5 @@
 import Montacargas from "../models/Montacargas.js";
+import { buildMatchEquipos } from "../services/reporteVentasEquipos.service.js";
 
 export async function getMontacargas(req, res) {
   try {
@@ -72,7 +73,7 @@ export async function asignarCliente(req, res) {
 
 export async function regresarMonta(req, res) {
   try {
-    const { estatus } = req.body; // "disponible" o "taller"
+    const { estatus } = req.body;
     const monta = await Montacargas.findByIdAndUpdate(
       req.params.id,
       { clienteActual: null, estatus: estatus || "disponible" },
@@ -86,16 +87,12 @@ export async function regresarMonta(req, res) {
 }
 
 // ── POST /montacargas/:id/vender ──
-// Marca el equipo como vendido: sale del catálogo/inventario activo,
-// guarda el desglose de pago (facturado + efectivo) y calcula el IVA
-// sobre la parte facturada. El importe total SIEMPRE se calcula aquí,
-// nunca se confía en un total que mande el frontend.
 export async function marcarVendido(req, res) {
   try {
     const { montoFacturado, montoEfectivo, numeroFactura, fecha, clienteId, clienteNombre, asesorId, notas } = req.body;
 
     const facturado = Number(montoFacturado) || 0;
-    const efectivo  = Number(montoEfectivo) || 0;
+    const efectivo  = Number(montoEfectivo)  || 0;
 
     if (facturado <= 0 && efectivo <= 0) {
       return res.status(400).json({ message: "Captura al menos un monto facturado o en efectivo" });
@@ -111,19 +108,19 @@ export async function marcarVendido(req, res) {
       return res.status(400).json({ message: "Este equipo ya está marcado como vendido" });
     }
 
-    monta.estatus = "vendido";
-    monta.clienteActual = null; // ya no está rentado a nadie
+    monta.estatus       = "vendido";
+    monta.clienteActual = null;
     monta.venta = {
-      fecha: fecha ? new Date(fecha) : new Date(),
+      fecha:          fecha ? new Date(fecha) : new Date(),
       importe,
       montoFacturado: facturado,
-      ivaFacturado: iva,
-      numeroFactura: numeroFactura || "",
-      montoEfectivo: efectivo,
-      cliente: clienteId || null,
-      clienteNombre: clienteNombre || "",
-      asesor: asesorId || null,
-      notas: notas || "",
+      ivaFacturado:   iva,
+      numeroFactura:  numeroFactura || "",
+      montoEfectivo:  efectivo,
+      cliente:        clienteId    || null,
+      clienteNombre:  clienteNombre || "",
+      asesor:         asesorId     || null,
+      notas:          notas        || "",
     };
 
     await monta.save();
@@ -140,15 +137,12 @@ export async function marcarVendido(req, res) {
 }
 
 // ── PUT /montacargas/:id/editar-venta ──
-// Permite corregir los datos de una venta ya capturada (developer/gerencia),
-// sin necesidad de deshacer y volver a vender. Recalcula IVA/total igual
-// que marcarVendido, siempre en el backend.
 export async function editarVenta(req, res) {
   try {
     const { montoFacturado, montoEfectivo, numeroFactura, fecha, clienteId, clienteNombre, asesorId, notas } = req.body;
 
     const facturado = Number(montoFacturado) || 0;
-    const efectivo  = Number(montoEfectivo) || 0;
+    const efectivo  = Number(montoEfectivo)  || 0;
 
     if (facturado <= 0 && efectivo <= 0) {
       return res.status(400).json({ message: "Captura al menos un monto facturado o en efectivo" });
@@ -165,16 +159,16 @@ export async function editarVenta(req, res) {
     const importe = parseFloat((facturado + iva + efectivo).toFixed(2));
 
     monta.venta = {
-      fecha: fecha ? new Date(fecha) : monta.venta.fecha,
+      fecha:          fecha ? new Date(fecha) : monta.venta.fecha,
       importe,
       montoFacturado: facturado,
-      ivaFacturado: iva,
-      numeroFactura: numeroFactura || "",
-      montoEfectivo: efectivo,
-      cliente: clienteId || null,
-      clienteNombre: clienteNombre || "",
-      asesor: asesorId || null,
-      notas: notas || "",
+      ivaFacturado:   iva,
+      numeroFactura:  numeroFactura || "",
+      montoEfectivo:  efectivo,
+      cliente:        clienteId    || null,
+      clienteNombre:  clienteNombre || "",
+      asesor:         asesorId     || null,
+      notas:          notas        || "",
     };
 
     await monta.save();
@@ -189,8 +183,8 @@ export async function editarVenta(req, res) {
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
-// Revierte una venta por error de captura: regresa el equipo a "disponible"
-// y limpia los datos de venta.
+
+// ── POST /montacargas/:id/deshacer-venta ──
 export async function deshacerVenta(req, res) {
   try {
     const monta = await Montacargas.findById(req.params.id);
@@ -201,7 +195,7 @@ export async function deshacerVenta(req, res) {
     }
 
     monta.estatus = "disponible";
-    monta.venta = { fecha: null, importe: 0, cliente: null, clienteNombre: "", asesor: null, notas: "" };
+    monta.venta   = { fecha: null, importe: 0, cliente: null, clienteNombre: "", asesor: null, notas: "" };
     await monta.save();
 
     res.json(monta);
@@ -212,21 +206,15 @@ export async function deshacerVenta(req, res) {
 }
 
 // ── GET /montacargas/reporte-ventas?desde=YYYY-MM-DD&hasta=YYYY-MM-DD&asesorId=... ──
-// Reporte de equipos vendidos filtrable por rango de fechas y opcionalmente por asesor.
-// Devuelve el listado + totales, listo para pintar tabla y tarjetas de resumen.
+// Usa buildMatchEquipos() del service compartido → mismo filtro que el nuevo
+// endpoint /api/reportes/ventas/equipos, garantizando conciliación exacta.
+// El contrato de respuesta es idéntico al original: Montacargas.tsx no cambia.
 export async function reporteVentas(req, res) {
   try {
     const { desde, hasta, asesorId } = req.query;
 
-    const filtro = { estatus: "vendido" };
-
-    if (desde || hasta) {
-      filtro["venta.fecha"] = {};
-      if (desde) filtro["venta.fecha"].$gte = new Date(desde + "T00:00:00");
-      if (hasta) filtro["venta.fecha"].$lte = new Date(hasta + "T23:59:59");
-    }
-
-    if (asesorId) filtro["venta.asesor"] = asesorId;
+    // Mismo filtro MongoDB que usa el nuevo reporte — conciliación garantizada
+    const filtro = buildMatchEquipos({ desde, hasta, asesorId });
 
     const vendidos = await Montacargas.find(filtro)
       .populate("venta.cliente", "nombre")
@@ -235,7 +223,6 @@ export async function reporteVentas(req, res) {
 
     const totalImporte = vendidos.reduce((acc, m) => acc + (m.venta?.importe ?? 0), 0);
 
-    // Agrupado por asesor, útil para el reporte
     const porAsesorMap = new Map();
     for (const m of vendidos) {
       const key    = m.venta?.asesor?._id?.toString() ?? "sin_asesor";
@@ -243,14 +230,14 @@ export async function reporteVentas(req, res) {
       if (!porAsesorMap.has(key)) porAsesorMap.set(key, { nombre, cantidad: 0, total: 0 });
       const g = porAsesorMap.get(key);
       g.cantidad += 1;
-      g.total += m.venta?.importe ?? 0;
+      g.total    += m.venta?.importe ?? 0;
     }
 
     res.json({
-      equipos: vendidos,
+      equipos:      vendidos,
       totalEquipos: vendidos.length,
       totalImporte,
-      porAsesor: [...porAsesorMap.values()].sort((a, b) => b.total - a.total),
+      porAsesor:    [...porAsesorMap.values()].sort((a, b) => b.total - a.total),
     });
   } catch (e) {
     console.error("Error reporteVentas:", e);
