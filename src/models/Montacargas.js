@@ -24,8 +24,11 @@ const montacargasSchema = new mongoose.Schema(
     },
     horometroActual:          { type: Number, default: 0 },
     horasRestantesServicio:   { type: Number, default: 0 },
-    // ── "vendido" agregado: al marcarse así, el equipo sale del catálogo/filtros normales ──
-    estatus:                  { type: String, enum: ["disponible", "rentado", "taller", "mantenimiento", "vendido"], default: "disponible" },
+    estatus: {
+      type: String,
+      enum: ["disponible", "rentado", "taller", "mantenimiento", "vendido"],
+      default: "disponible",
+    },
     clienteActual:            { type: mongoose.Schema.Types.ObjectId, ref: "Cliente", default: null },
     costoDia:     { type: Number, default: 0 },
     costoSemana:  { type: Number, default: 0 },
@@ -37,16 +40,20 @@ const montacargasSchema = new mongoose.Schema(
     fechaUltimoServicio:      { type: Date, default: null },
     proximoServicio:          { type: Date, default: null },
 
-    // ── Datos de la venta, solo se llenan cuando estatus === "vendido" ──
+    // ── Datos de la venta ──────────────────────────────────────────────────
     venta: {
       fecha:          { type: Date, default: null },
-      importe:        { type: Number, default: 0 }, // total real cobrado = facturado(+IVA) + efectivo
-      montoFacturado: { type: Number, default: 0 }, // subtotal SIN IVA de la parte facturada
-      ivaFacturado:   { type: Number, default: 0 }, // IVA calculado sobre montoFacturado (16%)
-      numeroFactura:  { type: String, trim: true, default: "" }, // folio(s) de factura, ej. "A-1234" o "A-1234, A-1235"
-      montoEfectivo:  { type: Number, default: 0 }, // parte no facturada
+      importe:        { type: Number, default: 0 },
+      montoFacturado: { type: Number, default: 0 },
+      ivaFacturado:   { type: Number, default: 0 },
+      numeroFactura:  { type: String, trim: true, default: "" },
+      montoEfectivo:  { type: Number, default: 0 },
+      // fechaPago: cuándo PIPSA recibió el pago del cliente.
+      // A partir de esta fecha y "venta.fecha" (= fecha de factura) se calcula
+      // los días de cobro para determinar el % de comisión según la política.
+      fechaPago:      { type: Date, default: null },
       cliente:        { type: mongoose.Schema.Types.ObjectId, ref: "Cliente", default: null },
-      clienteNombre:  { type: String, trim: true, default: "" }, // por si es cliente ocasional, sin catálogo
+      clienteNombre:  { type: String, trim: true, default: "" },
       asesor:         { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", default: null },
       notas:          { type: String, trim: true, default: "" },
     },

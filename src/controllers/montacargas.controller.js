@@ -117,6 +117,7 @@ export async function marcarVendido(req, res) {
       ivaFacturado:   iva,
       numeroFactura:  numeroFactura || "",
       montoEfectivo:  efectivo,
+      fechaPago:      req.body.fechaPago ? new Date(req.body.fechaPago) : null,
       cliente:        clienteId    || null,
       clienteNombre:  clienteNombre || "",
       asesor:         asesorId     || null,
@@ -165,6 +166,10 @@ export async function editarVenta(req, res) {
       ivaFacturado:   iva,
       numeroFactura:  numeroFactura || "",
       montoEfectivo:  efectivo,
+      // Conservar fechaPago existente si no se manda una nueva
+      fechaPago:      req.body.fechaPago
+                        ? new Date(req.body.fechaPago)
+                        : (monta.venta.fechaPago ?? null),
       cliente:        clienteId    || null,
       clienteNombre:  clienteNombre || "",
       asesor:         asesorId     || null,

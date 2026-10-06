@@ -46,6 +46,42 @@ function numSeguro(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Calcula la comisión de una venta de equipo según la política de días de cobro.
+ * El tiempo corre desde venta.fecha (fecha de factura) hasta venta.fechaPago.
+ * Si no hay fechaPago, devuelve null (pendiente de cobro).
+ *
+ * Tabla (solo por días — el factor de margen se aplica manualmente por Dirección):
+ *   0–30 días  → 3.0%
+ *   31–60 días → 2.0%
+ *   61–90 días → 1.0%
+ *   > 90 días  → 0.0%  (requiere autorización según política)
+ *
+ * @returns {porcentaje: number, diasCobro: number, monto: number} | null
+ */
+function calcularComisionEquipo(venta) {
+  if (!venta?.fecha || !venta?.fechaPago) return null;
+
+  const fechaFactura = new Date(venta.fecha);
+  const fechaPago    = new Date(venta.fechaPago);
+  fechaFactura.setHours(0, 0, 0, 0);
+  fechaPago.setHours(0, 0, 0, 0);
+
+  const diasCobro = Math.round((fechaPago - fechaFactura) / (1000 * 60 * 60 * 24));
+
+  let porcentaje;
+  if      (diasCobro <= 30) porcentaje = 3.0;
+  else if (diasCobro <= 60) porcentaje = 2.0;
+  else if (diasCobro <= 90) porcentaje = 1.0;
+  else                       porcentaje = 0.0;
+
+  // Base = venta.importe (total cobrado = facturado + IVA + efectivo)
+  const base  = numSeguro(venta.importe);
+  const monto = Math.round(base * (porcentaje / 100) * 100) / 100;
+
+  return { diasCobro, porcentaje, monto };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Exports públicos
 // ─────────────────────────────────────────────────────────────────────────────
@@ -282,15 +318,19 @@ export async function obtenerEquiposVendidos(filtros = {}) {
       tipoCombustible: m.tipo             ?? "",
       venta: {
         fecha:             m.venta?.fecha        ?? null,
-        importe:           importeGuardado,      // misma fuente que el reporte anterior
+        importe:           importeGuardado,
         montoFacturado,
         ivaFacturado,
         montoEfectivo,
         importeCalculado,
         diferenciaImporte: diferencia,
-        requiereRevision:  diferencia > 0.01,    // tolerancia 1 centavo
-        numeroFactura:     m.venta?.numeroFactura ?? null,  // texto libre, no FK
+        requiereRevision:  diferencia > 0.01,
+        numeroFactura:     m.venta?.numeroFactura ?? null,
+        fechaPago:         m.venta?.fechaPago     ?? null,
         notas:             m.venta?.notas         ?? null,
+        // Comisión calculada por días de cobro (factura → pago)
+        // null si aún no se ha registrado la fecha de pago
+        comision:          calcularComisionEquipo(m.venta),
         cliente: m.venta?.cliente
           ? { id: m.venta.cliente._id, nombre: m.venta.cliente.nombre }
           : m.venta?.clienteNombre
@@ -303,10 +343,20 @@ export async function obtenerEquiposVendidos(filtros = {}) {
     };
   });
 
+  // Resumen de comisiones: solo operaciones que ya tienen fechaPago
+  const opsConComision = operaciones.filter(op => op.venta.comision !== null);
+  const comisionResumen = {
+    operacionesConPago:    opsConComision.length,
+    operacionesSinPago:    operaciones.length - opsConComision.length,
+    montoTotalComisiones:  Math.round(opsConComision.reduce((acc, op) => acc + (op.venta.comision?.monto ?? 0), 0) * 100) / 100,
+    advertenciaMargen:     "El % de comisión mostrado corresponde únicamente al plazo de cobro. El porcentaje final depende también del margen bruto de la operación según la política de comisiones vigente.",
+  };
+
   return {
     resumen,
     porAsesor,
     operaciones,
+    comisionResumen,
     paginacion: { page, limit, total, pages: Math.ceil(total / limit) },
     disponibilidad: { facturacionConciliada: false, cobranza: false, saldo: false },
   };

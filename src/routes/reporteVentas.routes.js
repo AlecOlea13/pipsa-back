@@ -23,6 +23,10 @@ import {
   obtenerEquiposVendidos,
   validarFiltros,
 } from "../services/reporteVentasEquipos.service.js";
+import {
+  obtenerServiciosFacturados,
+  validarFiltrosServicios,
+} from "../services/reporteVentasServicios.service.js";
 
 const router = Router();
 const soloDeveloperYGerencia = requireRol("developer", "gerencia");
@@ -79,7 +83,45 @@ router.get(
 //  El frontend debe interpretar disponible:false y no mostrar totales en cero.
 //  Rutas específicas; no hay conflicto de orden con rutas dinámicas.
 // ════════════════════════════════════════════════════════════════════════════
-const PENDIENTES = ["rentas", "servicios", "refacciones", "otros"];
+// ════════════════════════════════════════════════════════════════════════════
+//  GET /api/reportes/ventas/servicios
+//  Fuente: Cotizacion tipo="servicio" estatus="facturada"
+//  Nota: filtra por cotizacion.fecha (no por fechaFacturada, que no existe).
+// ════════════════════════════════════════════════════════════════════════════
+router.get(
+  "/ventas/servicios",
+  auth,
+  soloDeveloperYGerencia,
+  async (req, res) => {
+    try {
+      const { desde, hasta } = req.query;
+      const validacion = validarFiltrosServicios({ desde, hasta });
+      if (!validacion.ok) {
+        return res.status(400).json({ message: validacion.mensaje });
+      }
+      const resultado = await obtenerServiciosFacturados({
+        desde,
+        hasta,
+        asesorId:  req.query.asesorId,
+        clienteId: req.query.clienteId,
+        buscar:    req.query.buscar,
+        page:      req.query.page,
+        limit:     req.query.limit,
+        sortBy:    req.query.sortBy,
+        sortDir:   req.query.sortDir,
+      });
+      res.json(resultado);
+    } catch (err) {
+      console.error("[GET /api/reportes/ventas/servicios]", err);
+      res.status(500).json({ message: "Error al generar el reporte de servicios" });
+    }
+  }
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+//  Categorías pendientes
+// ════════════════════════════════════════════════════════════════════════════
+const PENDIENTES = ["rentas", "refacciones", "otros"];
 
 for (const cat of PENDIENTES) {
   router.get(
