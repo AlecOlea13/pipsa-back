@@ -120,11 +120,13 @@ export function buildMatchEquipos({ desde, hasta, asesorId, clienteId, buscar } 
   }
 
   if (asesorId && mongoose.isValidObjectId(asesorId)) {
-    match["venta.asesor._id"] = new mongoose.Types.ObjectId(asesorId);
+    // venta.asesor es un ObjectId directo (no embedded), se filtra sin ._id
+    match["venta.asesor"] = new mongoose.Types.ObjectId(asesorId);
   }
 
   if (clienteId && mongoose.isValidObjectId(clienteId)) {
-    match["venta.cliente._id"] = new mongoose.Types.ObjectId(clienteId);
+    // venta.cliente es un ObjectId directo
+    match["venta.cliente"] = new mongoose.Types.ObjectId(clienteId);
   }
 
   if (buscar?.trim()) {
@@ -209,7 +211,8 @@ export async function obtenerEquiposVendidos(filtros = {}) {
     { $match: match },
     {
       $group: {
-        _id: { asesorId: "$venta.asesor._id", asesorNombre: "$venta.asesor.nombre" },
+        // venta.asesor es ObjectId — agrupar por el ObjectId directamente
+        _id: { asesorId: "$venta.asesor" },
         equiposVendidos:             { $sum: 1 },
         ventaComercialTotal:         { $sum: { $ifNull: ["$venta.importe",        0] } },
         subtotalFacturadoRegistrado: { $sum: { $ifNull: ["$venta.montoFacturado", 0] } },
@@ -217,6 +220,20 @@ export async function obtenerEquiposVendidos(filtros = {}) {
         ventaEfectivo:               { $sum: { $ifNull: ["$venta.montoEfectivo",  0] } },
       },
     },
+    {
+      $lookup: {
+        from: "asesors",    // nombre real de la colección en MongoDB (Mongoose pluraliza "Asesor" → "asesors")
+        localField: "_id.asesorId",
+        foreignField: "_id",
+        as: "_asesorDoc",
+      },
+    },
+    {
+      $addFields: {
+        "_id.asesorNombre": { $ifNull: [{ $arrayElemAt: ["$_asesorDoc.nombre", 0] }, null] },
+      },
+    },
+    { $project: { _asesorDoc: 0 } },
     { $sort: { ventaComercialTotal: -1 } },
   ]);
 
@@ -224,8 +241,8 @@ export async function obtenerEquiposVendidos(filtros = {}) {
     const eq = numSeguro(g.equiposVendidos);
     const vt = numSeguro(g.ventaComercialTotal);
     return {
-      asesorId:                    g._id.asesorId    ?? null,
-      asesorNombre:                g._id.asesorNombre ?? "Sin asesor asignado",
+      asesorId:     g._id.asesorId    ?? null,
+      asesorNombre: g._id.asesorNombre ?? "Sin asesor asignado",
       equiposVendidos:             eq,
       ventaComercialTotal:         vt,
       subtotalFacturadoRegistrado: numSeguro(g.subtotalFacturadoRegistrado),
@@ -242,6 +259,8 @@ export async function obtenerEquiposVendidos(filtros = {}) {
     .skip((page - 1) * limit)
     .limit(limit)
     .select("_id numeroEconomico marca modelo serie capacidad tipo venta")
+    .populate("venta.asesor",  "nombre")
+    .populate("venta.cliente", "nombre")
     .lean();
 
   const operaciones = docs.map(m => {
