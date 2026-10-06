@@ -27,14 +27,13 @@ const clienteOcasionalSchema = new mongoose.Schema({
   contacto:  { type: String, trim: true },
 }, { _id: false });
 
-// ── Nuevo: datos específicos del curso DC3 ──
 const cursoDC3Schema = new mongoose.Schema({
-  modalidad:          { type: String, enum: ["teorico", "practico", "teorico-practico"], default: "teorico-practico" },
-  participantes:      { type: Number, default: 1 },
-  precioPorPersona:   { type: Number, default: 0 },
-  duracionHoras:      { type: Number, default: 4 },
-  incluyeConstancia:  { type: Boolean, default: true },
-  lugar:              { type: String, trim: true },
+  modalidad:         { type: String, enum: ["teorico", "practico", "teorico-practico"], default: "teorico-practico" },
+  participantes:     { type: Number, default: 1 },
+  precioPorPersona:  { type: Number, default: 0 },
+  duracionHoras:     { type: Number, default: 4 },
+  incluyeConstancia: { type: Boolean, default: true },
+  lugar:             { type: String, trim: true },
 }, { _id: false });
 
 const cotizacionSchema = new mongoose.Schema(
@@ -53,20 +52,23 @@ const cotizacionSchema = new mongoose.Schema(
     iva:          { type: Number, default: 0 },
     total:        { type: Number, default: 0 },
     condiciones:  { type: String, trim: true },
-    moneda: { type: String, enum: ["MXN", "USD"], default: "MXN" },
+    moneda:       { type: String, enum: ["MXN", "USD"], default: "MXN" },
     estatus: {
       type: String,
       enum: ["activa", "facturada", "cancelada"],
       default: "activa",
     },
     numeroFactura: { type: String, trim: true, default: null },
+    // fechaPago: cuándo PIPSA recibió el pago del cliente por esta cotización.
+    // A partir de esta fecha y "fecha" (fecha de la cotización/factura) se
+    // calcula los días de cobro para el % de comisión según la política vigente.
+    fechaPago:    { type: Date, default: null },
     notas:        { type: String, trim: true },
     asesor:       { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", default: null },
     equipoMarca:  { type: String, trim: true, default: null },
     equipoModelo: { type: String, trim: true, default: null },
     equipoSerie:  { type: String, trim: true, default: null },
     comentarios:  [comentarioSchema],
-    // ── Nuevo ──
     cursoDC3:     { type: cursoDC3Schema, default: null },
   },
   { timestamps: true }

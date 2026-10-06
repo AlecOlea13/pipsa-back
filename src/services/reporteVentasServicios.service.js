@@ -39,6 +39,30 @@ function numSeguro(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Calcula la comisión de un servicio según días de cobro.
+ * Base: cotizacion.total. Referencia de tiempo: cotizacion.fecha → cotizacion.fechaPago.
+ *
+ *   0–30 días  → 3.0%
+ *   31–60 días → 2.0%
+ *   61–90 días → 1.0%
+ *   > 90 días  → 0.0%  (requiere autorización)
+ *
+ * Retorna null si no hay fechaPago registrada.
+ */
+function calcularComisionServicio(cotizacion) {
+  if (!cotizacion?.fecha || !cotizacion?.fechaPago) return null;
+  const fechaRef  = new Date(cotizacion.fecha);
+  const fechaPago = new Date(cotizacion.fechaPago);
+  fechaRef.setHours(0, 0, 0, 0);
+  fechaPago.setHours(0, 0, 0, 0);
+  const diasCobro  = Math.round((fechaPago - fechaRef) / (1000 * 60 * 60 * 24));
+  const porcentaje = diasCobro <= 30 ? 3.0 : diasCobro <= 60 ? 2.0 : diasCobro <= 90 ? 1.0 : 0.0;
+  const base       = numSeguro(cotizacion.total);
+  const monto      = Math.round(base * (porcentaje / 100) * 100) / 100;
+  return { diasCobro, porcentaje, monto };
+}
+
 export function escaparCSV(val) {
   const s = String(val ?? "");
   const neutralized = /^[=+\-@]/.test(s) ? `'${s}` : s;
@@ -256,7 +280,7 @@ export async function obtenerServiciosFacturados(filtros = {}) {
     .sort({ [sortField]: sortDir })
     .skip((page - 1) * limit)
     .limit(limit)
-    .select("_id folio tipo fecha subtotal iva total moneda estatus numeroFactura descripcionServicio items cliente clienteOcasional asesor equipoMarca equipoModelo equipoSerie")
+    .select("_id folio tipo fecha subtotal iva total moneda estatus numeroFactura fechaPago descripcionServicio items cliente clienteOcasional asesor equipoMarca equipoModelo equipoSerie")
     .populate("asesor",  "nombre")
     .populate("cliente", "nombre")
     .lean();
@@ -284,6 +308,10 @@ export async function obtenerServiciosFacturados(filtros = {}) {
         fin:      comision.fin,
         etiqueta: comision.etiqueta,
       } : null,
+      fechaPago: c.fechaPago ?? null,
+      // Comisión calculada por días de cobro (fecha cotización → fechaPago)
+      // null si aún no se ha registrado la fecha de pago
+      comision: calcularComisionServicio(c),
       cliente: c.cliente
         ? { id: c.cliente._id, nombre: c.cliente.nombre }
         : c.clienteOcasional?.nombre
@@ -294,6 +322,17 @@ export async function obtenerServiciosFacturados(filtros = {}) {
         : null,
     };
   });
+
+  // Resumen de comisiones
+  const opsConComision = operaciones.filter(op => op.comision !== null);
+  const comisionResumen = {
+    operacionesConPago:   opsConComision.length,
+    operacionesSinPago:   operaciones.length - opsConComision.length,
+    montoTotalComisiones: Math.round(
+      opsConComision.reduce((acc, op) => acc + (op.comision?.monto ?? 0), 0) * 100
+    ) / 100,
+    advertenciaMargen: "El % corresponde únicamente al plazo de cobro. El % final depende también del margen bruto según la política de comisiones vigente.",
+  };
 
   return {
     resumen,
