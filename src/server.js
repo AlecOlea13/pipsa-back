@@ -55,8 +55,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Preflight explícito — "(.*)" en lugar de "*" por compatibilidad con path-to-regexp v8+
-app.options("(.*)", cors(corsOptions));
+// El middleware cors() maneja los preflights OPTIONS automáticamente
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
