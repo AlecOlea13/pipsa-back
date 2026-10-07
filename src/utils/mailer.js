@@ -63,7 +63,7 @@ export async function enviarEmailCierreServicio(destinatarios, servicio) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
       <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #f0b800;display:flex;align-items:center;gap:16px;">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
              style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
         <div>
           <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">Servicio Cerrado</p>
@@ -195,7 +195,7 @@ export async function enviarEmailPago({
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0c10;color:#e8eaf0;border-radius:12px;overflow:hidden">
       <div style="background:#111318;padding:24px;border-bottom:2px solid ${esParcial ? "#f59e0b" : "#22c55e"}">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
              style="width:60px;background:#000;border-radius:6px;padding:4px" />
         <h2 style="margin:12px 0 0;font-size:1.1rem;color:${esParcial ? "#f59e0b" : "#22c55e"}">
           ${esParcial ? "🔶 Pago parcial registrado" : "✅ Pago registrado"}
@@ -293,7 +293,7 @@ export async function enviarEmailPagoMultiple({ proveedor, facturas, totalGenera
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0c10;color:#e8eaf0;border-radius:12px;overflow:hidden">
       <div style="background:#111318;padding:24px;border-bottom:2px solid #f59e0b">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
              style="width:60px;background:#000;border-radius:6px;padding:4px" />
         <h2 style="margin:12px 0 0;font-size:1.1rem;color:#f59e0b">Pago múltiple registrado</h2>
       </div>
@@ -377,7 +377,7 @@ export async function enviarEmailCobro({
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0c10;color:#e8eaf0;border-radius:12px;overflow:hidden">
       <div style="background:#111318;padding:24px;border-bottom:2px solid ${esParcial ? "#f59e0b" : "#22c55e"}">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
              style="width:60px;background:#000;border-radius:6px;padding:4px" />
         <h2 style="margin:12px 0 0;font-size:1.1rem;color:${esParcial ? "#f59e0b" : "#22c55e"}">
           ${esParcial ? "🔶 Pago parcial registrado" : "✅ Cobro registrado"}
@@ -465,7 +465,7 @@ export async function enviarEmailPausaServicio(destinatarios, servicio, razon) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
       <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #f59e0b;display:flex;align-items:center;gap:16px;">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
              style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
         <div>
           <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">⏸️ Servicio Pausado</p>
@@ -540,7 +540,7 @@ export async function enviarEmailCobroMultiple({ cliente, facturas, totalGeneral
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0c10;color:#e8eaf0;border-radius:12px;overflow:hidden">
       <div style="background:#111318;padding:24px;border-bottom:2px solid #f59e0b">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
              style="width:60px;background:#000;border-radius:6px;padding:4px" />
         <h2 style="margin:12px 0 0;font-size:1.1rem;color:#f59e0b">Cobro múltiple registrado</h2>
       </div>
@@ -586,7 +586,7 @@ export async function enviarEmailEncuesta(destinatario, servicio, linkEncuesta) 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
       <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #f0b800;display:flex;align-items:center;gap:16px;">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
              style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
         <div>
           <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">Tu opinión nos importa</p>
@@ -639,7 +639,7 @@ export async function enviarEmailNotificacionEncuesta(destinatario, encuesta) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
       <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #22c55e;display:flex;align-items:center;gap:16px;">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
              style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
         <div>
           <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">📋 Nueva encuesta respondida</p>
@@ -722,7 +722,7 @@ export async function enviarEmailReporteCliente(destinatarios, reporte) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
       <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #4a90d9;display:flex;align-items:center;gap:16px;">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1778686227/Pipsa_logo_png_damxzy.png"
+        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
              style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
         <div>
           <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">🔔 Nuevo reporte de cliente</p>
