@@ -8,6 +8,10 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Logo oficial — sin fondo negro, sin borde redondeado
+const LOGO = `<img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
+     style="height:70px;object-fit:contain;" alt="Pipsa Montacargas" />`;
+
 export async function sendVerificationEmail(toEmail, token) {
   const base = process.env.FRONTEND_URL || "http://localhost:5173";
   const link = `${base}/verify-email?token=${token}`;
@@ -63,8 +67,7 @@ export async function enviarEmailCierreServicio(destinatarios, servicio) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
       <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #f0b800;display:flex;align-items:center;gap:16px;">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
-             style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
+        ${LOGO}
         <div>
           <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">Servicio Cerrado</p>
           <p style="margin:0;font-size:13px;color:#f0b800;">Control Pipsa — Notificación automática</p>
@@ -195,8 +198,7 @@ export async function enviarEmailPago({
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0c10;color:#e8eaf0;border-radius:12px;overflow:hidden">
       <div style="background:#111318;padding:24px;border-bottom:2px solid ${esParcial ? "#f59e0b" : "#22c55e"}">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
-             style="width:60px;background:#000;border-radius:6px;padding:4px" />
+        ${LOGO}
         <h2 style="margin:12px 0 0;font-size:1.1rem;color:${esParcial ? "#f59e0b" : "#22c55e"}">
           ${esParcial ? "🔶 Pago parcial registrado" : "✅ Pago registrado"}
         </h2>
@@ -258,20 +260,16 @@ export async function enviarEmailPago({
       : `✅ Pago registrado — ${proveedor}`;
 
   await transporter.sendMail({
-    from:        `"Control Pipsa" <${process.env.MAIL_USER}>`,
-    to:          "admin@pipsamontacargas.com",
-    subject,
-    html,
-    attachments,
+    from: `"Control Pipsa" <${process.env.MAIL_USER}>`,
+    to: "admin@pipsamontacargas.com",
+    subject, html, attachments,
   });
 
   if (emailProveedor && emailProveedor !== "admin@pipsamontacargas.com") {
     await transporter.sendMail({
-      from:        `"Control Pipsa" <${process.env.MAIL_USER}>`,
-      to:          emailProveedor,
-      subject,
-      html,
-      attachments,
+      from: `"Control Pipsa" <${process.env.MAIL_USER}>`,
+      to: emailProveedor,
+      subject, html, attachments,
     });
   }
 }
@@ -293,8 +291,7 @@ export async function enviarEmailPagoMultiple({ proveedor, facturas, totalGenera
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0c10;color:#e8eaf0;border-radius:12px;overflow:hidden">
       <div style="background:#111318;padding:24px;border-bottom:2px solid #f59e0b">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
-             style="width:60px;background:#000;border-radius:6px;padding:4px" />
+        ${LOGO}
         <h2 style="margin:12px 0 0;font-size:1.1rem;color:#f59e0b">Pago múltiple registrado</h2>
       </div>
       <div style="padding:24px">
@@ -346,23 +343,9 @@ export async function enviarEmailPagoMultiple({ proveedor, facturas, totalGenera
   }
 
   const subject = `✅ Pago múltiple — ${facturas.length} facturas | ${proveedor}`;
-
-  await transporter.sendMail({
-    from:        `"Control Pipsa" <${process.env.MAIL_USER}>`,
-    to:          "admin@pipsamontacargas.com",
-    subject,
-    html,
-    attachments,
-  });
-
+  await transporter.sendMail({ from: `"Control Pipsa" <${process.env.MAIL_USER}>`, to: "admin@pipsamontacargas.com", subject, html, attachments });
   if (emailProveedor && emailProveedor !== "admin@pipsamontacargas.com") {
-    await transporter.sendMail({
-      from:        `"Control Pipsa" <${process.env.MAIL_USER}>`,
-      to:          emailProveedor,
-      subject,
-      html,
-      attachments,
-    });
+    await transporter.sendMail({ from: `"Control Pipsa" <${process.env.MAIL_USER}>`, to: emailProveedor, subject, html, attachments });
   }
 }
 
@@ -377,8 +360,7 @@ export async function enviarEmailCobro({
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0c10;color:#e8eaf0;border-radius:12px;overflow:hidden">
       <div style="background:#111318;padding:24px;border-bottom:2px solid ${esParcial ? "#f59e0b" : "#22c55e"}">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
-             style="width:60px;background:#000;border-radius:6px;padding:4px" />
+        ${LOGO}
         <h2 style="margin:12px 0 0;font-size:1.1rem;color:${esParcial ? "#f59e0b" : "#22c55e"}">
           ${esParcial ? "🔶 Pago parcial registrado" : "✅ Cobro registrado"}
         </h2>
@@ -425,38 +407,24 @@ export async function enviarEmailCobro({
       const [header, base64Data] = complemento.split(",");
       const mimeType = header.match(/data:([^;]+);/)?.[1] ?? "application/octet-stream";
       const ext = mimeType.split("/")[1]?.replace("jpeg", "jpg") ?? "bin";
-      attachments.push({
-        filename: `complemento_${folio}.${ext}`,
-        content:  base64Data,
-        encoding: "base64",
-        contentType: mimeType,
-      });
+      attachments.push({ filename: `complemento_${folio}.${ext}`, content: base64Data, encoding: "base64", contentType: mimeType });
     } catch (e) {
       console.error("Error procesando adjunto:", e.message);
     }
   }
 
   await transporter.sendMail({
-    from:        `"Control Pipsa" <${process.env.MAIL_USER}>`,
-    to:          "admin@pipsamontacargas.com",
-    subject:     esParcial
-      ? `🔶 Pago parcial — ${folio} | ${cliente}`
-      : `💰 Cobro registrado — ${folio} | ${cliente}`,
-    html,
-    attachments,
+    from: `"Control Pipsa" <${process.env.MAIL_USER}>`,
+    to: "admin@pipsamontacargas.com",
+    subject: esParcial ? `🔶 Pago parcial — ${folio} | ${cliente}` : `💰 Cobro registrado — ${folio} | ${cliente}`,
+    html, attachments,
   });
 }
 
 export async function enviarEmailPausaServicio(destinatarios, servicio, razon) {
   const ahora = new Date();
-  const fecha = ahora.toLocaleDateString("es-MX", {
-    day: "2-digit", month: "long", year: "numeric",
-    timeZone: "America/Mexico_City",
-  });
-  const hora = ahora.toLocaleTimeString("es-MX", {
-    hour: "2-digit", minute: "2-digit",
-    timeZone: "America/Mexico_City",
-  });
+  const fecha = ahora.toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric", timeZone: "America/Mexico_City" });
+  const hora  = ahora.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", timeZone: "America/Mexico_City" });
 
   const monta   = servicio.montacargas;
   const cliente = servicio.cliente;
@@ -465,8 +433,7 @@ export async function enviarEmailPausaServicio(destinatarios, servicio, razon) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
       <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #f59e0b;display:flex;align-items:center;gap:16px;">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
-             style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
+        ${LOGO}
         <div>
           <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">⏸️ Servicio Pausado</p>
           <p style="margin:0;font-size:13px;color:#f59e0b;">Control Pipsa — Notificación automática</p>
@@ -487,11 +454,7 @@ export async function enviarEmailPausaServicio(destinatarios, servicio, razon) {
           </div>
         </div>
         <table style="width:100%;border-collapse:collapse;margin-bottom:20px;background:#1a1d27;border-radius:8px;overflow:hidden;border:1px solid #2a2d3a;">
-          <thead>
-            <tr style="background:#222537;">
-              <th colspan="2" style="padding:10px 16px;text-align:left;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Datos del equipo y cliente</th>
-            </tr>
-          </thead>
+          <thead><tr style="background:#222537;"><th colspan="2" style="padding:10px 16px;text-align:left;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Datos del equipo y cliente</th></tr></thead>
           <tbody>
             <tr><td style="padding:8px 16px;color:#7a8099;font-size:13px;width:140px;">Equipo</td><td style="padding:8px 16px;color:#fff;font-size:13px;font-weight:600;">${monta?.numeroEconomico ?? "—"} — ${monta?.marca ?? ""} ${monta?.modelo ?? ""}</td></tr>
             <tr style="background:#222537;"><td style="padding:8px 16px;color:#7a8099;font-size:13px;">Cliente</td><td style="padding:8px 16px;color:#fff;font-size:13px;">${cliente?.nombre ?? "Sin cliente"}</td></tr>
@@ -540,8 +503,7 @@ export async function enviarEmailCobroMultiple({ cliente, facturas, totalGeneral
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;background:#0a0c10;color:#e8eaf0;border-radius:12px;overflow:hidden">
       <div style="background:#111318;padding:24px;border-bottom:2px solid #f59e0b">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
-             style="width:60px;background:#000;border-radius:6px;padding:4px" />
+        ${LOGO}
         <h2 style="margin:12px 0 0;font-size:1.1rem;color:#f59e0b">Cobro múltiple registrado</h2>
       </div>
       <div style="padding:24px">
@@ -549,20 +511,10 @@ export async function enviarEmailCobroMultiple({ cliente, facturas, totalGeneral
           Se registró el cobro de <strong>${facturas.length} factura${facturas.length !== 1 ? "s" : ""}</strong> del cliente <strong>${cliente}</strong>:
         </p>
         <table style="width:100%;border-collapse:collapse;font-size:0.9rem;background:#111318;border-radius:8px;overflow:hidden;margin-bottom:16px">
-          <thead>
-            <tr style="background:#1a1d27">
-              <th style="padding:10px 12px;text-align:left;font-size:0.78rem;color:#7a8099;text-transform:uppercase;letter-spacing:.05em">Folio factura</th>
-              <th style="padding:10px 12px;text-align:right;font-size:0.78rem;color:#7a8099;text-transform:uppercase;letter-spacing:.05em">Importe</th>
-            </tr>
-          </thead>
+          <thead><tr style="background:#1a1d27"><th style="padding:10px 12px;text-align:left;font-size:0.78rem;color:#7a8099;text-transform:uppercase;letter-spacing:.05em">Folio factura</th><th style="padding:10px 12px;text-align:right;font-size:0.78rem;color:#7a8099;text-transform:uppercase;letter-spacing:.05em">Importe</th></tr></thead>
           <tbody>
             ${facturasHtml}
-            <tr style="background:#1a1d27">
-              <td style="padding:10px 12px;font-weight:700;color:#fff">TOTAL COBRADO</td>
-              <td style="padding:10px 12px;text-align:right;font-weight:700;font-size:1rem;color:#22c55e">
-                $${Number(totalGeneral).toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-              </td>
-            </tr>
+            <tr style="background:#1a1d27"><td style="padding:10px 12px;font-weight:700;color:#fff">TOTAL COBRADO</td><td style="padding:10px 12px;text-align:right;font-weight:700;font-size:1rem;color:#22c55e">$${Number(totalGeneral).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td></tr>
           </tbody>
         </table>
         <table style="width:100%;border-collapse:collapse;font-size:0.9rem">
@@ -575,8 +527,8 @@ export async function enviarEmailCobroMultiple({ cliente, facturas, totalGeneral
     </div>`;
 
   await transporter.sendMail({
-    from:    `"Control Pipsa" <${process.env.MAIL_USER}>`,
-    to:      "admin@pipsamontacargas.com",
+    from: `"Control Pipsa" <${process.env.MAIL_USER}>`,
+    to: "admin@pipsamontacargas.com",
     subject: `💰 Cobro múltiple — ${facturas.length} facturas | ${cliente}`,
     html,
   });
@@ -586,8 +538,7 @@ export async function enviarEmailEncuesta(destinatario, servicio, linkEncuesta) 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
       <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #f0b800;display:flex;align-items:center;gap:16px;">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
-             style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
+        ${LOGO}
         <div>
           <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">Tu opinión nos importa</p>
           <p style="margin:0;font-size:13px;color:#f0b800;">Pipsa Montacargas — Encuesta de satisfacción</p>
@@ -607,8 +558,7 @@ export async function enviarEmailEncuesta(destinatario, servicio, linkEncuesta) 
           La encuesta solo toma <strong style="color:#fff;">2 minutos</strong>. Tu respuesta es completamente confidencial.
         </p>
         <div style="text-align:center;margin-bottom:24px;">
-          <a href="${linkEncuesta}"
-             style="display:inline-block;background:#f0b800;color:#0f1117;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:15px;font-weight:700;letter-spacing:.02em;">
+          <a href="${linkEncuesta}" style="display:inline-block;background:#f0b800;color:#0f1117;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:15px;font-weight:700;letter-spacing:.02em;">
             Responder encuesta →
           </a>
         </div>
@@ -625,8 +575,8 @@ export async function enviarEmailEncuesta(destinatario, servicio, linkEncuesta) 
   `;
 
   await transporter.sendMail({
-    from:    `"Pipsa Montacargas" <${process.env.MAIL_USER}>`,
-    to:      destinatario.email,
+    from: `"Pipsa Montacargas" <${process.env.MAIL_USER}>`,
+    to: destinatario.email,
     subject: `¿Cómo fue tu experiencia? — Servicio ${servicio.folio}`,
     html,
   });
@@ -639,15 +589,13 @@ export async function enviarEmailNotificacionEncuesta(destinatario, encuesta) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
       <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #22c55e;display:flex;align-items:center;gap:16px;">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
-             style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
+        ${LOGO}
         <div>
           <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">📋 Nueva encuesta respondida</p>
           <p style="margin:0;font-size:13px;color:#22c55e;">Servicio ${encuesta.servicio?.folio ?? "S/F"} — ${encuesta.cliente?.nombre ?? "Cliente"}</p>
         </div>
       </div>
       <div style="padding:28px 32px;">
-
         <div style="display:flex;gap:12px;margin-bottom:20px;">
           <div style="flex:1;background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;text-align:center;">
             <p style="margin:0 0 4px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Calificación general</p>
@@ -661,47 +609,21 @@ export async function enviarEmailNotificacionEncuesta(destinatario, encuesta) {
             </p>
           </div>
         </div>
-
         <table style="width:100%;border-collapse:collapse;background:#1a1d27;border-radius:8px;overflow:hidden;border:1px solid #2a2d3a;margin-bottom:20px;">
-          <thead>
-            <tr style="background:#222537;">
-              <th colspan="2" style="padding:10px 16px;text-align:left;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Detalle de respuestas</th>
-            </tr>
-          </thead>
+          <thead><tr style="background:#222537;"><th colspan="2" style="padding:10px 16px;text-align:left;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Detalle de respuestas</th></tr></thead>
           <tbody>
-            <tr>
-              <td style="padding:10px 16px;color:#7a8099;font-size:13px;width:60%;">1. Atención del técnico</td>
-              <td style="padding:10px 16px;font-size:16px;color:#f0b800;">${estrellas(encuesta.p1_atencion)} <span style="font-size:12px;color:#7a8099;">(${encuesta.p1_atencion}/5)</span></td>
-            </tr>
-            <tr style="background:#222537;">
-              <td style="padding:10px 16px;color:#7a8099;font-size:13px;">2. Servicio en tiempo acordado</td>
-              <td style="padding:10px 16px;font-size:13px;font-weight:600;color:${encuesta.p2_tiempoAcordado === "si" ? "#22c55e" : encuesta.p2_tiempoAcordado === "no" ? "#f87171" : "#f59e0b"};">
-                ${labelOpcion[encuesta.p2_tiempoAcordado] ?? "—"}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:10px 16px;color:#7a8099;font-size:13px;">3. Satisfacción con la solución</td>
-              <td style="padding:10px 16px;font-size:16px;color:#f0b800;">${estrellas(encuesta.p3_satisfaccion)} <span style="font-size:12px;color:#7a8099;">(${encuesta.p3_satisfaccion}/5)</span></td>
-            </tr>
-            <tr style="background:#222537;">
-              <td style="padding:10px 16px;color:#7a8099;font-size:13px;">4. Técnico explicó el trabajo</td>
-              <td style="padding:10px 16px;font-size:13px;font-weight:600;color:${encuesta.p4_comunicacion === "si" ? "#22c55e" : encuesta.p4_comunicacion === "no" ? "#f87171" : "#f59e0b"};">
-                ${labelOpcion[encuesta.p4_comunicacion] ?? "—"}
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:10px 16px;color:#7a8099;font-size:13px;">5. Calificación general</td>
-              <td style="padding:10px 16px;font-size:16px;color:#f0b800;">${estrellas(encuesta.p5_general)} <span style="font-size:12px;color:#7a8099;">(${encuesta.p5_general}/5)</span></td>
-            </tr>
+            <tr><td style="padding:10px 16px;color:#7a8099;font-size:13px;width:60%;">1. Atención del técnico</td><td style="padding:10px 16px;font-size:16px;color:#f0b800;">${estrellas(encuesta.p1_atencion)} <span style="font-size:12px;color:#7a8099;">(${encuesta.p1_atencion}/5)</span></td></tr>
+            <tr style="background:#222537;"><td style="padding:10px 16px;color:#7a8099;font-size:13px;">2. Servicio en tiempo acordado</td><td style="padding:10px 16px;font-size:13px;font-weight:600;color:${encuesta.p2_tiempoAcordado === "si" ? "#22c55e" : encuesta.p2_tiempoAcordado === "no" ? "#f87171" : "#f59e0b"};">${labelOpcion[encuesta.p2_tiempoAcordado] ?? "—"}</td></tr>
+            <tr><td style="padding:10px 16px;color:#7a8099;font-size:13px;">3. Satisfacción con la solución</td><td style="padding:10px 16px;font-size:16px;color:#f0b800;">${estrellas(encuesta.p3_satisfaccion)} <span style="font-size:12px;color:#7a8099;">(${encuesta.p3_satisfaccion}/5)</span></td></tr>
+            <tr style="background:#222537;"><td style="padding:10px 16px;color:#7a8099;font-size:13px;">4. Técnico explicó el trabajo</td><td style="padding:10px 16px;font-size:13px;font-weight:600;color:${encuesta.p4_comunicacion === "si" ? "#22c55e" : encuesta.p4_comunicacion === "no" ? "#f87171" : "#f59e0b"};">${labelOpcion[encuesta.p4_comunicacion] ?? "—"}</td></tr>
+            <tr><td style="padding:10px 16px;color:#7a8099;font-size:13px;">5. Calificación general</td><td style="padding:10px 16px;font-size:16px;color:#f0b800;">${estrellas(encuesta.p5_general)} <span style="font-size:12px;color:#7a8099;">(${encuesta.p5_general}/5)</span></td></tr>
           </tbody>
         </table>
-
         ${encuesta.comentarios ? `
         <div style="background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;">
           <p style="margin:0 0 6px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Comentarios del cliente</p>
           <p style="margin:0;font-size:14px;color:#fff;font-style:italic;">"${encuesta.comentarios}"</p>
         </div>` : ""}
-
       </div>
       <div style="background:#1a1d27;padding:16px 32px;text-align:center;border-top:1px solid #2a2d3a;">
         <p style="margin:0;font-size:12px;color:#7a8099;">Control Pipsa — Encuestas de satisfacción</p>
@@ -711,8 +633,8 @@ export async function enviarEmailNotificacionEncuesta(destinatario, encuesta) {
   `;
 
   await transporter.sendMail({
-    from:    `"Control Pipsa" <${process.env.MAIL_USER}>`,
-    to:      destinatario.email,
+    from: `"Control Pipsa" <${process.env.MAIL_USER}>`,
+    to: destinatario.email,
     subject: `📋 Encuesta respondida — ${encuesta.servicio?.folio ?? "S/F"} | ${encuesta.cliente?.nombre ?? "Cliente"}`,
     html,
   });
@@ -722,8 +644,7 @@ export async function enviarEmailReporteCliente(destinatarios, reporte) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
       <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #4a90d9;display:flex;align-items:center;gap:16px;">
-        <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
-             style="width:60px;height:60px;object-fit:contain;background:#000;border-radius:6px;" alt="Pipsa" />
+        ${LOGO}
         <div>
           <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">🔔 Nuevo reporte de cliente</p>
           <p style="margin:0;font-size:13px;color:#4a90d9;">Control Pipsa — Notificación automática</p>
@@ -765,8 +686,8 @@ export async function enviarEmailReporteCliente(destinatarios, reporte) {
 
   for (const dest of destinatarios) {
     await transporter.sendMail({
-      from:    `"Control Pipsa" <${process.env.MAIL_USER}>`,
-      to:      dest.email,
+      from: `"Control Pipsa" <${process.env.MAIL_USER}>`,
+      to: dest.email,
       subject: `🔔 Nuevo reporte — ${reporte.folio} | ${reporte.cliente?.nombre ?? "Cliente"}`,
       html,
     });
