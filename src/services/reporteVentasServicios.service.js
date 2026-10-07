@@ -51,8 +51,12 @@ function numSeguro(v) {
  * Retorna null si no hay fechaPago registrada.
  */
 function calcularComisionServicio(cotizacion) {
-  if (!cotizacion?.fecha || !cotizacion?.fechaPago) return null;
-  const fechaRef  = new Date(cotizacion.fecha);
+  if (!cotizacion?.fechaPago) return null;
+  // Usar fechaFacturada si existe, sino fallback a fecha de la cotización
+  // (para registros anteriores a la implementación de fechaFacturada)
+  const refBase   = cotizacion.fechaFacturada ?? cotizacion.fecha;
+  if (!refBase) return null;
+  const fechaRef  = new Date(refBase);
   const fechaPago = new Date(cotizacion.fechaPago);
   fechaRef.setHours(0, 0, 0, 0);
   fechaPago.setHours(0, 0, 0, 0);
@@ -280,7 +284,7 @@ export async function obtenerServiciosFacturados(filtros = {}) {
     .sort({ [sortField]: sortDir })
     .skip((page - 1) * limit)
     .limit(limit)
-    .select("_id folio tipo fecha subtotal iva total moneda estatus numeroFactura fechaPago descripcionServicio items cliente clienteOcasional asesor equipoMarca equipoModelo equipoSerie")
+    .select("_id folio tipo fecha fechaFacturada subtotal iva total moneda estatus numeroFactura fechaPago descripcionServicio items cliente clienteOcasional asesor equipoMarca equipoModelo equipoSerie")
     .populate("asesor",  "nombre")
     .populate("cliente", "nombre")
     .lean();
@@ -291,7 +295,9 @@ export async function obtenerServiciosFacturados(filtros = {}) {
       id:            `servicio:${c._id}`,
       cotizacionId:  c._id,
       folio:         c.folio,
-      fecha:         c.fecha ?? null,
+      fecha:          c.fecha          ?? null,
+      fechaFacturada: c.fechaFacturada  ?? null,  // null en registros anteriores a este campo
+      fechaReferencia: c.fechaFacturada ?? c.fecha ?? null,  // la que realmente se usa para comisión
       moneda:        c.moneda ?? "MXN",
       subtotal:      numSeguro(c.subtotal),
       iva:           numSeguro(c.iva),

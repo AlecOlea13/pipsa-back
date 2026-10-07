@@ -58,7 +58,11 @@ const cotizacionSchema = new mongoose.Schema(
       enum: ["activa", "facturada", "cancelada"],
       default: "activa",
     },
-    numeroFactura: { type: String, trim: true, default: null },
+    numeroFactura:   { type: String, trim: true, default: null },
+    // Fecha en que se emitió la factura. Se captura al marcar la cotización como
+    // "facturada". Para documentos anteriores a este campo queda null y el reporte
+    // usa cotizacion.fecha como fallback para el cálculo de días de comisión.
+    fechaFacturada:  { type: Date, default: null },
     // fechaPago: cuándo PIPSA recibió el pago del cliente por esta cotización.
     // A partir de esta fecha y "fecha" (fecha de la cotización/factura) se
     // calcula los días de cobro para el % de comisión según la política vigente.
