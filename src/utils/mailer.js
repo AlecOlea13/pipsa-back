@@ -65,116 +65,144 @@ export async function enviarEmailCierreServicio(destinatarios, servicio) {
   ).join("") ?? "";
 
   const html = `
-    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#0f1117;color:#e8eaf0;border-radius:12px;overflow:hidden;">
-      <div style="background:#1a1d27;padding:24px 32px;border-bottom:3px solid #f0b800;display:flex;align-items:center;gap:16px;">
-        ${LOGO}
-        <div>
-          <p style="margin:0;font-size:18px;font-weight:700;color:#fff;">Servicio Cerrado</p>
-          <p style="margin:0;font-size:13px;color:#f0b800;">Control Pipsa — Notificación automática</p>
-        </div>
-      </div>
-      <div style="padding:28px 32px;">
-        <p style="margin:0 0 20px;font-size:14px;color:#aab0c6;">
-          Se ha cerrado el siguiente servicio el <strong style="color:#fff;">${fecha}</strong>.
-        </p>
-        <div style="display:flex;gap:12px;margin-bottom:20px;">
-          <div style="flex:1;background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;">
-            <p style="margin:0 0 4px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Folio</p>
-            <p style="margin:0;font-size:20px;font-weight:700;color:#f0b800;">${servicio.folio}</p>
-          </div>
-          <div style="flex:1;background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;">
-            <p style="margin:0 0 4px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Tipo de servicio</p>
-            <p style="margin:0;font-size:15px;font-weight:600;color:#fff;">${tipo?.nombre ?? "Sin tipo"}</p>
-          </div>
-          ${tiempoTexto ? `
-          <div style="flex:1;background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;">
-            <p style="margin:0 0 4px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">⏱️ Tiempo empleado</p>
-            <p style="margin:0;font-size:15px;font-weight:700;color:#22c55e;">${tiempoTexto}</p>
-          </div>` : ""}
-        </div>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;background:#1a1d27;border-radius:8px;overflow:hidden;border:1px solid #2a2d3a;">
-          <thead>
-            <tr style="background:#222537;">
-              <th colspan="2" style="padding:10px 16px;text-align:left;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Datos del equipo y cliente</th>
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F4F5F7;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F4F5F7;padding:32px 0;">
+  <tr><td align="center">
+    <table width="640" cellpadding="0" cellspacing="0" border="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+      <!-- Encabezado con logo -->
+      <tr>
+        <td style="background:#ffffff;padding:28px 40px 20px;border-bottom:3px solid #F5B800;text-align:center;">
+          <img src="https://res.cloudinary.com/dijxgoytw/image/upload/v1790702340/LOGO_OFI_zwzayb.png"
+               alt="Pipsa Montacargas" style="height:64px;width:auto;display:block;margin:0 auto;" />
+        </td>
+      </tr>
+
+      <!-- Título -->
+      <tr>
+        <td style="padding:32px 40px 8px;text-align:center;">
+          <p style="margin:0;font-size:22px;font-weight:700;color:#1a1a1a;letter-spacing:-0.3px;">
+            Servicio finalizado
+          </p>
+          <p style="margin:10px 0 0;font-size:14px;color:#555555;line-height:1.6;">
+            El siguiente servicio ha sido concluido satisfactoriamente el <strong style="color:#1a1a1a;">${fecha}</strong>.
+          </p>
+        </td>
+      </tr>
+
+      <!-- Tarjeta de datos -->
+      <tr>
+        <td style="padding:20px 40px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                 style="background:#F8F9FB;border-radius:6px;border:1px solid #E4E6EA;overflow:hidden;">
+            <tr style="background:#F5B800;">
+              <td colspan="2" style="padding:10px 20px;">
+                <p style="margin:0;font-size:13px;font-weight:700;color:#1a1a1a;text-transform:uppercase;letter-spacing:0.08em;">
+                  Datos del servicio
+                </p>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            <tr><td style="padding:8px 16px;color:#7a8099;font-size:13px;width:140px;">Equipo</td><td style="padding:8px 16px;color:#fff;font-size:13px;font-weight:600;">${monta?.numeroEconomico ?? "—"} — ${monta?.marca ?? ""} ${monta?.modelo ?? ""}</td></tr>
-            <tr style="background:#222537;"><td style="padding:8px 16px;color:#7a8099;font-size:13px;">Cliente</td><td style="padding:8px 16px;color:#fff;font-size:13px;">${cliente?.nombre ?? "Sin cliente"}</td></tr>
-            <tr><td style="padding:8px 16px;color:#7a8099;font-size:13px;">Técnico</td><td style="padding:8px 16px;color:#fff;font-size:13px;">${tecnico?.nombre ?? "Sin asignar"}</td></tr>
-            <tr style="background:#222537;"><td style="padding:8px 16px;color:#7a8099;font-size:13px;">Horómetro entrada</td><td style="padding:8px 16px;color:#fff;font-size:13px;">${servicio.horometro ?? "—"} hrs</td></tr>
-            <tr><td style="padding:8px 16px;color:#7a8099;font-size:13px;">Horómetro cierre</td><td style="padding:8px 16px;color:#fff;font-size:13px;">${servicio.horometroCierre ?? "—"} hrs</td></tr>
-          </tbody>
-        </table>
-        <div style="background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;margin-bottom:20px;">
-          <p style="margin:0 0 6px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Problema reportado</p>
-          <p style="margin:0;font-size:14px;color:#fff;">${servicio.problema ?? "—"}</p>
-        </div>
-        ${servicio.notasCierre ? `
-        <div style="background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;margin-bottom:20px;">
-          <p style="margin:0 0 6px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Trabajos realizados / Notas de cierre</p>
-          <p style="margin:0;font-size:14px;color:#fff;">${servicio.notasCierre}</p>
-        </div>` : ""}
-        ${refaccionesHtml ? `
-        <div style="margin-bottom:20px;">
-          <p style="margin:0 0 8px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Refacciones utilizadas</p>
-          <table style="width:100%;border-collapse:collapse;background:#1a1d27;border-radius:8px;overflow:hidden;border:1px solid #2a2d3a;">
-            <thead><tr style="background:#222537;"><th style="padding:8px 12px;text-align:left;font-size:11px;color:#7a8099;width:80px;">Cantidad</th><th style="padding:8px 12px;text-align:left;font-size:11px;color:#7a8099;">Refacción</th></tr></thead>
-            <tbody>${refaccionesHtml}</tbody>
+            ${[
+              ["Folio",              servicio.folio],
+              ["Equipo",            monta ? `${monta.numeroEconomico ?? ""} — ${monta.marca ?? ""} ${monta.modelo ?? ""}`.trim() : null],
+              ["Cliente",           cliente?.nombre],
+              ["Tipo de servicio",  tipo?.nombre],
+              ["Fecha de cierre",   fecha],
+              ["Técnico",           tecnico?.nombre],
+              ["Horómetro cierre",  servicio.horometroCierre != null ? `${servicio.horometroCierre} hrs` : null],
+              tiempoTexto ? ["Tiempo empleado", tiempoTexto] : null,
+            ].filter(Boolean).map(([label, value], i) => value ? `
+            <tr style="background:${i % 2 === 0 ? "#ffffff" : "#F8F9FB"};">
+              <td style="padding:10px 20px;font-size:13px;color:#777;width:44%;border-bottom:1px solid #E4E6EA;">${label}</td>
+              <td style="padding:10px 20px;font-size:13px;color:#1a1a1a;font-weight:600;border-bottom:1px solid #E4E6EA;">${value}</td>
+            </tr>` : "").join("")}
           </table>
-        </div>` : ""}
-        <div style="background:#1a1d27;border-radius:8px;padding:14px 18px;border:1px solid #2a2d3a;margin-bottom:20px;">
-          <p style="margin:0 0 10px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Costos</p>
-          <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:#aab0c6;font-size:13px;">Refacciones</span><span style="color:#fff;font-size:13px;">$${(servicio.costoRefacciones ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span></div>
-          <div style="display:flex;justify-content:space-between;margin-bottom:10px;"><span style="color:#aab0c6;font-size:13px;">Mano de obra</span><span style="color:#fff;font-size:13px;">$${(servicio.costoManoObra ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span></div>
-          <div style="display:flex;justify-content:space-between;border-top:1px solid #2a2d3a;padding-top:10px;"><span style="color:#fff;font-size:15px;font-weight:700;">Total</span><span style="color:#f0b800;font-size:15px;font-weight:700;">$${((servicio.costoRefacciones ?? 0) + (servicio.costoManoObra ?? 0)).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span></div>
-        </div>
-        ${servicio.fotoHojaFirmada || (servicio.fotoEquipoFinal && servicio.fotoEquipoFinal.length > 0) || servicio.fotoRefacciones ? `
-        <div style="margin-bottom:20px;">
-          <p style="margin:0 0 10px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">Evidencia fotográfica</p>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;">
-            ${servicio.fotoHojaFirmada ? `<div style="flex:1;min-width:140px;text-align:center;"><p style="margin:0 0 6px;font-size:11px;color:#7a8099;">📋 Hoja firmada</p><img src="${servicio.fotoHojaFirmada}" style="width:100%;max-width:200px;border-radius:8px;border:1px solid #2a2d3a;" /></div>` : ""}
-            ${servicio.fotoRefacciones ? `<div style="flex:1;min-width:140px;text-align:center;"><p style="margin:0 0 6px;font-size:11px;color:#7a8099;">🔩 Refacciones utilizadas</p><img src="${servicio.fotoRefacciones}" style="width:100%;max-width:200px;border-radius:8px;border:1px solid #2a2d3a;" /></div>` : ""}
-          </div>
-          ${servicio.fotoEquipoFinal && servicio.fotoEquipoFinal.length > 0 ? `
-          <div style="margin-top:14px;">
-            <p style="margin:0 0 8px;font-size:11px;color:#7a8099;">📸 Equipo finalizado (${servicio.fotoEquipoFinal.length > 6 ? `mostrando 6 de ${servicio.fotoEquipoFinal.length}` : `${servicio.fotoEquipoFinal.length} foto${servicio.fotoEquipoFinal.length > 1 ? "s" : ""}`})</p>
-            <div style="display:grid;grid-template-columns:repeat(${Math.min(servicio.fotoEquipoFinal.length, 6)},1fr);gap:6px;">
-              ${servicio.fotoEquipoFinal.slice(0, 6).map(url => `<img src="${url}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid #2a2d3a;" />`).join("")}
-            </div>
-          </div>` : ""}
-        </div>` : ""}
-        ${servicio.firmaCliente ? `
-        <div style="margin-bottom:20px;text-align:center;">
-          <p style="margin:0 0 8px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">✍️ Firma del cliente</p>
-          <img src="${servicio.firmaCliente}" style="max-width:260px;background:#fff;border-radius:8px;padding:8px;" />
-        </div>` : ""}
-        ${servicio.ubicacionInicio || servicio.ubicacionCierre ? `
-        <div style="margin-bottom:20px;">
-          <p style="margin:0 0 10px;font-size:11px;color:#7a8099;text-transform:uppercase;letter-spacing:.06em;">📍 Ubicaciones registradas</p>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;">
-            ${servicio.ubicacionInicio ? `
-            <a href="https://www.google.com/maps?q=${servicio.ubicacionInicio.lat},${servicio.ubicacionInicio.lng}" target="_blank"
-              style="flex:1;min-width:160px;display:block;background:#1a1d27;border-radius:8px;padding:12px 16px;border:1px solid #2a2d3a;text-decoration:none;">
-              <p style="margin:0 0 4px;font-size:11px;color:#7a8099;">🟢 Ubicación de inicio</p>
-              <p style="margin:0;font-size:13px;color:#4ade80;font-weight:600;">Ver en Google Maps →</p>
-              <p style="margin:4px 0 0;font-size:10px;color:#4a5068;">${servicio.ubicacionInicio.lat.toFixed(5)}, ${servicio.ubicacionInicio.lng.toFixed(5)}</p>
-            </a>` : ""}
-            ${servicio.ubicacionCierre ? `
-            <a href="https://www.google.com/maps?q=${servicio.ubicacionCierre.lat},${servicio.ubicacionCierre.lng}" target="_blank"
-              style="flex:1;min-width:160px;display:block;background:#1a1d27;border-radius:8px;padding:12px 16px;border:1px solid #2a2d3a;text-decoration:none;">
-              <p style="margin:0 0 4px;font-size:11px;color:#7a8099;">🔴 Ubicación de cierre</p>
-              <p style="margin:0;font-size:13px;color:#f87171;font-weight:600;">Ver en Google Maps →</p>
-              <p style="margin:4px 0 0;font-size:10px;color:#4a5068;">${servicio.ubicacionCierre.lat.toFixed(5)}, ${servicio.ubicacionCierre.lng.toFixed(5)}</p>
-            </a>` : ""}
-          </div>
-        </div>` : ""}
-      </div>
-      <div style="background:#1a1d27;padding:16px 32px;text-align:center;border-top:1px solid #2a2d3a;">
-        <p style="margin:0;font-size:12px;color:#7a8099;">Control Pipsa — Sistema de Gestión de Flota</p>
-        <p style="margin:4px 0 0;font-size:11px;color:#4a5068;">Este es un mensaje automático, no responder.</p>
-      </div>
-    </div>
+        </td>
+      </tr>
+
+      <!-- Problema y trabajos realizados -->
+      ${servicio.problema ? `
+      <tr>
+        <td style="padding:0 40px 8px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                 style="background:#F8F9FB;border-radius:6px;border:1px solid #E4E6EA;">
+            <tr>
+              <td style="padding:10px 20px;border-bottom:1px solid #E4E6EA;">
+                <p style="margin:0;font-size:12px;font-weight:700;color:#777;text-transform:uppercase;letter-spacing:0.06em;">Falla reportada</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 20px;font-size:13px;color:#333;line-height:1.6;">${servicio.problema}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>` : ""}
+
+      ${servicio.notasCierre ? `
+      <tr>
+        <td style="padding:0 40px 8px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                 style="background:#F8F9FB;border-radius:6px;border:1px solid #E4E6EA;">
+            <tr>
+              <td style="padding:10px 20px;border-bottom:1px solid #E4E6EA;">
+                <p style="margin:0;font-size:12px;font-weight:700;color:#777;text-transform:uppercase;letter-spacing:0.06em;">Trabajos realizados</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 20px;font-size:13px;color:#333;line-height:1.6;">${servicio.notasCierre}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>` : ""}
+
+      <!-- Nota de hoja de servicio -->
+      <tr>
+        <td style="padding:8px 40px 24px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                 style="background:#FFF8E1;border-radius:6px;border:1px solid #F5D67A;">
+            <tr>
+              <td style="padding:14px 20px;">
+                <p style="margin:0;font-size:13px;color:#7A5900;line-height:1.6;">
+                  La hoja de servicio completa está disponible en el sistema de Control Pipsa.
+                  Si requiere una copia en PDF, por favor comuníquese con su asesor de servicio.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+
+      <!-- Cierre -->
+      <tr>
+        <td style="padding:0 40px 32px;text-align:center;">
+          <p style="margin:0;font-size:15px;font-weight:600;color:#1a1a1a;">
+            Gracias por confiar en Pipsa Montacargas.
+          </p>
+        </td>
+      </tr>
+
+      <!-- Pie -->
+      <tr>
+        <td style="background:#F4F5F7;padding:20px 40px;text-align:center;border-top:1px solid #E4E6EA;">
+          <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.1em;">
+            Renta &nbsp;&middot;&nbsp; Venta &nbsp;&middot;&nbsp; Mantenimiento
+          </p>
+          <p style="margin:0;font-size:11px;color:#999;line-height:1.7;">
+            Bahías de Huatulco No. 99, Parques de Santa María, Tlaquepaque, Jal. 45609<br>
+            Tel. 33 3856 8329 &nbsp;|&nbsp; pipsamontacargas@hotmail.com &nbsp;|&nbsp; www.pipsamontacargas.com
+          </p>
+          <p style="margin:8px 0 0;font-size:10px;color:#bbb;">Mensaje automático, por favor no responder.</p>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
   `;
 
   for (const dest of destinatarios) {
