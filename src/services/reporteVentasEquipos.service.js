@@ -62,12 +62,12 @@ function numSeguro(v) {
 function calcularComisionEquipo(venta) {
   if (!venta?.fecha || !venta?.fechaPago) return null;
 
-  const fechaFactura = new Date(venta.fecha);
-  const fechaPago    = new Date(venta.fechaPago);
-  fechaFactura.setHours(0, 0, 0, 0);
-  fechaPago.setHours(0, 0, 0, 0);
-
-  const diasCobro = Math.round((fechaPago - fechaFactura) / (1000 * 60 * 60 * 24));
+  // Parsear como fecha local para evitar desfase UTC
+  function fechaLocalMs(d) {
+    const dt = new Date(d);
+    return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
+  }
+  const diasCobro = Math.floor((fechaLocalMs(venta.fechaPago) - fechaLocalMs(venta.fecha)) / (1000 * 60 * 60 * 24));
 
   let porcentaje;
   if      (diasCobro <= 30) porcentaje = 3.0;
