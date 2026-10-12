@@ -82,13 +82,13 @@ export async function createServicio(req, res) {
           servicio: servicio._id,
           montacargas: body.montacargas,
           items: refacciones
-          .filter(r => r.refaccion) // descarta referencias rotas
-          .map(r => ({
-            refaccion: r.refaccion._id ?? r.refaccion,
-            cantidadSolicitada: r.cantidad,
-            cantidadSurtida: 0,
-            confirmado: false,
-          })),
+            .filter(r => r.refaccion)
+            .map(r => ({
+              refaccion: r.refaccion._id ?? r.refaccion,
+              cantidadSolicitada: r.cantidad,
+              cantidadSurtida: 0,
+              confirmado: false,
+            })),
           estatus: "pendiente",
         });
         ordenId = orden._id;
@@ -138,8 +138,8 @@ export async function iniciarServicio(req, res) {
     await servicio.save();
     await servicio.populate([
       { path: "montacargas", select: "numeroEconomico marca modelo serie" },
-      { path: "cliente", select: "nombre direccion telefono" },
-      { path: "tipoServicio", select: "nombre" },
+      { path: "cliente",     select: "nombre direccion telefono" },
+      { path: "tipoServicio",    select: "nombre" },
       { path: "tecnicoAsignado", select: "nombre" },
     ]);
     res.json(servicio);
@@ -164,9 +164,9 @@ export async function pausarServicio(req, res) {
     servicio.estatus = "pausado";
     await servicio.save();
     await servicio.populate([
-      { path: "montacargas", select: "numeroEconomico marca modelo serie" },
-      { path: "cliente", select: "nombre direccion telefono" },
-      { path: "tipoServicio", select: "nombre" },
+      { path: "montacargas",    select: "numeroEconomico marca modelo serie" },
+      { path: "cliente",        select: "nombre direccion telefono" },
+      { path: "tipoServicio",   select: "nombre" },
       { path: "tecnicoAsignado", select: "nombre" },
     ]);
     try {
@@ -201,9 +201,9 @@ export async function reanudarServicio(req, res) {
     servicio.estatus = "en_proceso";
     await servicio.save();
     await servicio.populate([
-      { path: "montacargas", select: "numeroEconomico marca modelo serie" },
-      { path: "cliente", select: "nombre direccion telefono" },
-      { path: "tipoServicio", select: "nombre" },
+      { path: "montacargas",    select: "numeroEconomico marca modelo serie" },
+      { path: "cliente",        select: "nombre direccion telefono" },
+      { path: "tipoServicio",   select: "nombre" },
       { path: "tecnicoAsignado", select: "nombre" },
     ]);
     res.json(servicio);
@@ -222,23 +222,32 @@ export async function cerrarServicio(req, res) {
     if (!puedeCerrar) return res.status(403).json({ message: "No tienes permiso para cerrar este servicio" });
 
     const {
-  horometro, proximoServicio, estatusMonta,
-  notasCierre, fotoHojaFirmada, fotoEquipoFinal, fotoRefacciones,
-  firmaCliente,
-  ubicacion,
-} = req.body;
+      horometro,
+      notasCierre, fotoHojaFirmada, fotoEquipoFinal, fotoRefacciones,
+      firmaCliente,
+      ubicacion,
+    } = req.body;
 
-const updateData = {
-  estatus: "cerrado",
-  horometroCierre: horometro,
-  proximoServicio,
-  notasCierre,
-  fotoHojaFirmada:  fotoHojaFirmada  ?? null,
-  fotoEquipoFinal:  Array.isArray(fotoEquipoFinal) ? fotoEquipoFinal : (fotoEquipoFinal ? [fotoEquipoFinal] : []),
-  fotoRefacciones:  fotoRefacciones  ?? null,
-  firmaCliente:     firmaCliente     ?? null,
-  horaFin: new Date(),
-};
+    // Determinar el estatus al que debe regresar el equipo.
+    // Si tiene cliente asignado → "rentado". Si no → "disponible".
+    // Así un equipo rentado que entra a mantenimiento regresa a "rentado"
+    // sin que el técnico ni nadie tenga que seleccionarlo manualmente.
+    const montaActual = await Montacargas.findById(servicioActual.montacargas)
+      .select("clienteActual");
+    const estatusRegreso = montaActual?.clienteActual ? "rentado" : "disponible";
+
+    const updateData = {
+      estatus:        "cerrado",
+      horometroCierre: horometro,
+      notasCierre,
+      fotoHojaFirmada:  fotoHojaFirmada  ?? null,
+      fotoEquipoFinal:  Array.isArray(fotoEquipoFinal)
+        ? fotoEquipoFinal
+        : (fotoEquipoFinal ? [fotoEquipoFinal] : []),
+      fotoRefacciones:  fotoRefacciones  ?? null,
+      firmaCliente:     firmaCliente     ?? null,
+      horaFin:          new Date(),
+    };
 
     if (ubicacion?.lat && ubicacion?.lng) {
       updateData.ubicacionCierre = { lat: ubicacion.lat, lng: ubicacion.lng };
@@ -246,19 +255,18 @@ const updateData = {
 
     const servicio = await Servicio.findByIdAndUpdate(req.params.id, updateData, { new: true })
       .populate("montacargas", "numeroEconomico marca modelo serie")
-      .populate("cliente", "nombre direccion telefono email")
-      .populate("tipoServicio", "nombre")
+      .populate("cliente",     "nombre direccion telefono email")
+      .populate("tipoServicio",    "nombre")
       .populate("tecnicoAsignado", "nombre")
       .populate({ path: "ordenRefaccion", populate: { path: "items.refaccion", select: "nombre numeroParte unidad precio" } });
 
     if (!servicio) return res.status(404).json({ message: "Servicio no encontrado" });
 
     await Montacargas.findByIdAndUpdate(servicio.montacargas, {
-      horometroActual: horometro,
-      fechaUltimoServicio: new Date(),
-      proximoServicio,
+      horometroActual:      horometro,
+      fechaUltimoServicio:  new Date(),
       proximoMantenimiento: new Date(new Date().setMonth(new Date().getMonth() + 1)),
-      estatus: estatusMonta || "disponible",
+      estatus:              estatusRegreso,
     });
 
     try {
@@ -282,9 +290,9 @@ const updateData = {
 export async function getServiciosPorMontacargas(req, res) {
   try {
     const servicios = await Servicio.find({ montacargas: req.params.montacargasId })
-      .populate("cliente", "nombre")
-      .populate("tipoServicio", "nombre")
-      .populate("tecnicoAsignado", "nombre")
+      .populate("cliente",        "nombre")
+      .populate("tipoServicio",   "nombre")
+      .populate("tecnicoAsignado","nombre")
       .select("folio estatus fechaReporte problema notasCierre horometro horometroCierre horaInicio horaFin cliente tipoServicio tecnicoAsignado")
       .sort({ createdAt: -1 });
     res.json(servicios);
