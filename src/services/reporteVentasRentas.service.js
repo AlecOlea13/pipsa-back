@@ -40,16 +40,14 @@ export function validarFiltrosRentas({ desde, hasta }) {
   return { ok: true };
 }
 
-export function buildMatchRentas({ desde, hasta, asesorId, clienteId, buscar } = {}) {
+export function buildMatchRentas({ asesorId, clienteId } = {}) {
+  // NOTA: Rentas NO filtra por fecha. Una renta "activa" es una obligación
+  // vigente HOY, sin importar cuándo inició el contrato — filtrar por
+  // fechaInicio dentro de un rango excluía incorrectamente los contratos
+  // antiguos que siguen vigentes. El selector de fechas en el frontend
+  // para esta categoría queda solo de referencia visual, no se envía al
+  // backend (ver reporteVentas.routes.js).
   const match = { estatus: "activa" };
-
-  const fDesde = desde ? fechaLocalMX(desde, false) : null;
-  const fHasta = hasta ? fechaLocalMX(hasta, true)  : null;
-  if (fDesde || fHasta) {
-    match.fechaInicio = {};
-    if (fDesde) match.fechaInicio.$gte = fDesde;
-    if (fHasta) match.fechaInicio.$lte = fHasta;
-  }
 
   if (asesorId && mongoose.isValidObjectId(asesorId)) {
     match.asesor = new mongoose.Types.ObjectId(asesorId);
@@ -91,7 +89,7 @@ export async function obtenerRentasActivas(filtros = {}) {
   const sortField = SORT_WHITELIST.has(rawSortBy) ? rawSortBy : "fechaInicio";
   const sortDir   = rawSortDir === "asc" ? 1 : -1;
 
-  const match = buildMatchRentas({ desde, hasta, asesorId, clienteId });
+  const match = buildMatchRentas({ asesorId, clienteId });
 
   const total = await Renta.countDocuments(match);
 
