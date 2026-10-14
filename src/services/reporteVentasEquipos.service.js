@@ -15,6 +15,7 @@
 
 import mongoose    from "mongoose";
 import Montacargas from "../models/Montacargas.js";
+import { calcularPorcentajePorDias, diasEntreFechas, round2, numSeguro as numSeguroCentral } from "./comisiones.util.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers internos
@@ -62,24 +63,17 @@ function numSeguro(v) {
 function calcularComisionEquipo(venta) {
   if (!venta?.fecha || !venta?.fechaPago) return null;
 
-  // Parsear como fecha local para evitar desfase UTC
-  function fechaLocalMs(d) {
-    const dt = new Date(d);
-    return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
-  }
-  const diasCobro = Math.floor((fechaLocalMs(venta.fechaPago) - fechaLocalMs(venta.fecha)) / (1000 * 60 * 60 * 24));
+  const diasCobro  = diasEntreFechas(venta.fecha, venta.fechaPago);
+  const porcentaje = calcularPorcentajePorDias(diasCobro);
 
-  let porcentaje;
-  if      (diasCobro <= 30) porcentaje = 3.0;
-  else if (diasCobro <= 60) porcentaje = 2.0;
-  else if (diasCobro <= 90) porcentaje = 1.0;
-  else                       porcentaje = 0.0;
+  // Base = venta.montoFacturado (subtotal SIN IVA de la parte facturada).
+  // El modelo de Montacargas ya separa montoFacturado de ivaFacturado y
+  // montoEfectivo, así que aquí no se necesita el fallback de división —
+  // solo aplica cuando falta el campo de subtotal por completo.
+  const subtotalSinIva = numSeguro(venta.montoFacturado);
+  const monto = round2(subtotalSinIva * (porcentaje / 100));
 
-  // Base = venta.importe (total cobrado = facturado + IVA + efectivo)
-  const base  = numSeguro(venta.importe);
-  const monto = Math.round(base * (porcentaje / 100) * 100) / 100;
-
-  return { diasCobro, porcentaje, monto };
+  return { diasCobro, porcentaje, monto, subtotalSinIva };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -316,10 +310,12 @@ export async function obtenerEquiposVendidos(filtros = {}) {
       serie:           m.serie           ?? "",
       capacidad:       m.capacidad        ?? "",
       tipoCombustible: m.tipo             ?? "",
+      estatus: "vendido",
+      estado:  "Vendido",  // texto plano para el reporte; el único estatus posible en esta vista es "vendido"
       venta: {
         fecha:             m.venta?.fecha        ?? null,
         importe:           importeGuardado,
-        montoFacturado,
+        montoFacturado,     // subtotal SIN IVA — base real de la comisión
         ivaFacturado,
         montoEfectivo,
         importeCalculado,
@@ -328,9 +324,12 @@ export async function obtenerEquiposVendidos(filtros = {}) {
         numeroFactura:     m.venta?.numeroFactura ?? null,
         fechaPago:         m.venta?.fechaPago     ?? null,
         notas:             m.venta?.notas         ?? null,
-        // Comisión calculada por días de cobro (factura → pago)
-        // null si aún no se ha registrado la fecha de pago
+        // Comisión calculada por días de cobro, SOBRE SUBTOTAL SIN IVA (montoFacturado).
+        // null si aún no se ha registrado la fecha de pago.
         comision:          calcularComisionEquipo(m.venta),
+        // Campos explícitos pedidos por el reporte (mismo dato que `comision`, aplanado)
+        porcentajeComision: calcularComisionEquipo(m.venta)?.porcentaje ?? null,
+        comisionAntesIva:   calcularComisionEquipo(m.venta)?.monto ?? null,
         cliente: m.venta?.cliente
           ? { id: m.venta.cliente._id, nombre: m.venta.cliente.nombre }
           : m.venta?.clienteNombre
@@ -343,12 +342,32 @@ export async function obtenerEquiposVendidos(filtros = {}) {
     };
   });
 
-  // Resumen de comisiones: solo operaciones que ya tienen fechaPago
-  const opsConComision = operaciones.filter(op => op.venta.comision !== null);
+  // ── Comisión acumulada sobre TODO el filtro (no solo la página actual) ────
+  const docsParaComision = await Montacargas.find(match)
+    .select("venta.fecha venta.fechaPago venta.montoFacturado")
+    .lean();
+
+  let comisionAcumulada       = 0;
+  let operacionesConPago      = 0;
+  let operacionesSinPago      = 0;
+  let ventaAcumuladaAntesIva  = 0;
+
+  for (const m of docsParaComision) {
+    ventaAcumuladaAntesIva = round2(ventaAcumuladaAntesIva + numSeguro(m.venta?.montoFacturado));
+    const c = calcularComisionEquipo(m.venta);
+    if (c) {
+      operacionesConPago++;
+      comisionAcumulada = round2(comisionAcumulada + c.monto);
+    } else {
+      operacionesSinPago++;
+    }
+  }
+
   const comisionResumen = {
-    operacionesConPago:    opsConComision.length,
-    operacionesSinPago:    operaciones.length - opsConComision.length,
-    montoTotalComisiones:  Math.round(opsConComision.reduce((acc, op) => acc + (op.venta.comision?.monto ?? 0), 0) * 100) / 100,
+    operacionesConPago,
+    operacionesSinPago,
+    montoTotalComisiones:     comisionAcumulada,       // comisión acumulada de TODO el filtro
+    ventaAcumuladaAntesIva,                             // suma de montoFacturado (subtotal sin IVA)
     advertenciaMargen:     "El % de comisión mostrado corresponde únicamente al plazo de cobro. El porcentaje final depende también del margen bruto de la operación según la política de comisiones vigente.",
   };
 

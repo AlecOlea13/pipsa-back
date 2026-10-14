@@ -1,4 +1,5 @@
 import Cotizacion from "../models/Cotizacion.js";
+import { obtenerReportePorAsesor, validarFiltrosReporte } from "../services/reporteCotizaciones.service.js";
 
 const PREFIJO_POR_TIPO = {
   servicio:    "SRV",
@@ -41,7 +42,6 @@ export async function createCotizacion(req, res) {
     if (!body.montacargas) delete body.montacargas;
     if (!body.asesor)      delete body.asesor;
 
-    // Cliente ocasional vs. cliente de catálogo — mutuamente excluyentes
     if (body.clienteOcasional?.nombre) {
       body.cliente = null;
     } else {
@@ -139,5 +139,20 @@ export async function eliminarComentario(req, res) {
     res.json({ message: "Comentario eliminado" });
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
+  }
+}
+
+// ── Reporte general por asesor (activa / facturada / cancelada, todos los tipos) ──
+export async function getReportePorAsesor(req, res) {
+  try {
+    const { desde, hasta, asesorId, tipo } = req.query;
+    const validacion = validarFiltrosReporte({ desde, hasta });
+    if (!validacion.ok) return res.status(400).json({ message: validacion.mensaje });
+
+    const resultado = await obtenerReportePorAsesor({ desde, hasta, asesorId, tipo });
+    res.json(resultado);
+  } catch (e) {
+    console.error("Error getReportePorAsesor:", e);
+    res.status(500).json({ message: "Error al generar el reporte" });
   }
 }

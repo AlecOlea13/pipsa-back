@@ -14,6 +14,7 @@
 
 import mongoose  from "mongoose";
 import Cotizacion from "../models/Cotizacion.js";
+import { calcularComision, resolverSubtotal, round2, numSeguro as numSeguroCentral } from "./comisiones.util.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers compartidos (mismos que en reporteVentasEquipos.service.js)
@@ -51,20 +52,23 @@ function numSeguro(v) {
  * Retorna null si no hay fechaPago registrada.
  */
 function calcularComisionServicio(cotizacion) {
-  if (!cotizacion?.fechaPago) return null;
   // Usar fechaFacturada si existe, sino fallback a fecha de la cotización
   // (para registros anteriores a la implementación de fechaFacturada)
-  const refBase   = cotizacion.fechaFacturada ?? cotizacion.fecha;
-  if (!refBase) return null;
-  const fechaRef  = new Date(refBase);
-  const fechaPago = new Date(cotizacion.fechaPago);
-  fechaRef.setHours(0, 0, 0, 0);
-  fechaPago.setHours(0, 0, 0, 0);
-  const diasCobro  = Math.round((fechaPago - fechaRef) / (1000 * 60 * 60 * 24));
-  const porcentaje = diasCobro <= 30 ? 3.0 : diasCobro <= 60 ? 2.0 : diasCobro <= 90 ? 1.0 : 0.0;
-  const base       = numSeguro(cotizacion.total);
-  const monto      = Math.round(base * (porcentaje / 100) * 100) / 100;
-  return { diasCobro, porcentaje, monto };
+  const refBase = cotizacion?.fechaFacturada ?? cotizacion?.fecha;
+  const resultado = calcularComision({
+    doc: cotizacion,
+    fechaReferencia: refBase,
+    fechaPago: cotizacion?.fechaPago,
+  });
+  if (!resultado) return null;
+  // Se mantiene el nombre "monto" por compatibilidad con el resto del archivo.
+  return {
+    diasCobro:      resultado.diasCobro,
+    porcentaje:     resultado.porcentaje,
+    monto:          resultado.comision,
+    subtotalSinIva: resultado.subtotalSinIva,
+    esCalculado:    resultado.esCalculado,
+  };
 }
 
 export function escaparCSV(val) {
@@ -289,35 +293,51 @@ export async function obtenerServiciosFacturados(filtros = {}) {
     .populate("cliente", "nombre")
     .lean();
 
+  const ESTADO_LABEL = { activa: "Activa", facturada: "Facturada", cancelada: "Cancelada" };
+
   const operaciones = docs.map(c => {
-    const comision = calcularFechaComision(c.fecha);
+    const comisionFecha  = calcularFechaComision(c.fecha);
+    const comisionCalc   = calcularComisionServicio(c);
+    // subtotal/iva/total resueltos con fallback para documentos antiguos sin subtotal.
+    const montos = resolverSubtotal(c);
     return {
       id:            `servicio:${c._id}`,
       cotizacionId:  c._id,
       folio:         c.folio,
       fecha:          c.fecha          ?? null,
       fechaFacturada: c.fechaFacturada  ?? null,  // null en registros anteriores a este campo
+      fechaCierre:    c.fechaFacturada ?? c.fecha ?? null,  // fecha de cierre/facturación para el reporte
       fechaReferencia: c.fechaFacturada ?? c.fecha ?? null,  // la que realmente se usa para comisión
       moneda:        c.moneda ?? "MXN",
-      subtotal:      numSeguro(c.subtotal),
-      iva:           numSeguro(c.iva),
-      total:         numSeguro(c.total),
+      // Montos resueltos (con fallback si el documento antiguo solo tenía total con IVA)
+      subtotal:      montos.subtotalSinIva,
+      iva:           montos.iva,
+      total:         montos.totalConIva,
+      montoEsCalculado: montos.esCalculado,  // true si se dedujo el subtotal desde el total
       numeroFactura: c.numeroFactura ?? null,   // texto libre, no FK
       descripcion:   c.descripcionServicio ?? null,
       itemsCount:    c.items?.length ?? 0,
       equipoMarca:   c.equipoMarca  ?? null,
       equipoModelo:  c.equipoModelo ?? null,
       equipoSerie:   c.equipoSerie  ?? null,
+      estatus:       c.estatus,
+      estado:        ESTADO_LABEL[c.estatus] ?? c.estatus,
+      // No disponible: el técnico pertenece al módulo operativo de Servicio.js,
+      // no existe relación con Cotizacion. Ver limitaciones al final del reporte.
+      tecnico:       null,
       // Comisión: segunda semana del mes siguiente a la fecha de la cotización
-      fechaPagoComision: comision ? {
-        inicio:   comision.inicio,
-        fin:      comision.fin,
-        etiqueta: comision.etiqueta,
+      fechaPagoComision: comisionFecha ? {
+        inicio:   comisionFecha.inicio,
+        fin:      comisionFecha.fin,
+        etiqueta: comisionFecha.etiqueta,
       } : null,
       fechaPago: c.fechaPago ?? null,
-      // Comisión calculada por días de cobro (fecha cotización → fechaPago)
-      // null si aún no se ha registrado la fecha de pago
-      comision: calcularComisionServicio(c),
+      // Comisión calculada por días de cobro, SOBRE SUBTOTAL SIN IVA.
+      // null si aún no se ha registrado la fecha de pago.
+      comision: comisionCalc,
+      // Campos explícitos pedidos por el reporte (mismo dato que `comision`, aplanado)
+      porcentajeComision:      comisionCalc?.porcentaje ?? null,
+      comisionAntesIva:        comisionCalc?.monto ?? null,
       cliente: c.cliente
         ? { id: c.cliente._id, nombre: c.cliente.nombre }
         : c.clienteOcasional?.nombre
@@ -329,14 +349,42 @@ export async function obtenerServiciosFacturados(filtros = {}) {
     };
   });
 
-  // Resumen de comisiones
-  const opsConComision = operaciones.filter(op => op.comision !== null);
+  // ── Comisión acumulada sobre TODO el filtro (no solo la página actual) ────
+  // Se recorre el filtro completo (sin paginar) para que el total de comisión
+  // sea correcto aunque haya más de `limit` resultados.
+  const docsParaComision = await Cotizacion.find(match)
+    .select("subtotal total fecha fechaFacturada fechaPago")
+    .lean();
+
+  let comisionAcumulada        = 0;
+  let operacionesConPago       = 0;
+  let operacionesSinPago       = 0;
+  let subtotalAcumuladoTotal   = 0;
+  let ivaAcumuladoTotal        = 0;
+  let totalFacturadoAcumulado  = 0;
+
+  for (const c of docsParaComision) {
+    const montos = resolverSubtotal(c);
+    subtotalAcumuladoTotal  = round2(subtotalAcumuladoTotal + montos.subtotalSinIva);
+    ivaAcumuladoTotal       = round2(ivaAcumuladoTotal + montos.iva);
+    totalFacturadoAcumulado = round2(totalFacturadoAcumulado + montos.totalConIva);
+
+    const c2 = calcularComisionServicio(c);
+    if (c2) {
+      operacionesConPago++;
+      comisionAcumulada = round2(comisionAcumulada + c2.monto);
+    } else {
+      operacionesSinPago++;
+    }
+  }
+
   const comisionResumen = {
-    operacionesConPago:   opsConComision.length,
-    operacionesSinPago:   operaciones.length - opsConComision.length,
-    montoTotalComisiones: Math.round(
-      opsConComision.reduce((acc, op) => acc + (op.comision?.monto ?? 0), 0) * 100
-    ) / 100,
+    operacionesConPago,
+    operacionesSinPago,
+    montoTotalComisiones: comisionAcumulada,     // comisión acumulada de TODO el filtro
+    subtotalAcumulado:    subtotalAcumuladoTotal,
+    ivaAcumulado:          ivaAcumuladoTotal,
+    totalFacturadoAcumulado,
     advertenciaMargen: "El % corresponde únicamente al plazo de cobro. El % final depende también del margen bruto según la política de comisiones vigente.",
   };
 
@@ -344,6 +392,7 @@ export async function obtenerServiciosFacturados(filtros = {}) {
     resumen,
     porAsesor,
     operaciones,
+    comisionResumen,
     paginacion: { page, limit, total, pages: Math.ceil(total / limit) },
     disponibilidad: {
       facturacionConciliada: false,  // numeroFactura es texto libre, sin FK
@@ -352,9 +401,10 @@ export async function obtenerServiciosFacturados(filtros = {}) {
     },
     // Metadatos de la consulta para que el frontend pueda advertir al usuario
     meta: {
-      fuenteFecha:   "cotizacion.fecha",
-      advertencia:   "El filtro de fechas usa la fecha de la cotización, no la fecha de facturación. No existe campo fechaFacturada en el modelo.",
+      fuenteFecha:   "cotizacion.fechaFacturada (fallback: cotizacion.fecha)",
+      advertencia:   "El filtro de fechas usa la fecha de la cotización. La comisión se calcula sobre el subtotal SIN IVA (fallback aplicado si el documento solo tenía total con IVA).",
       manoObra:      "No disponible: los items de cotizaciones de servicio son texto libre sin categoría.",
+      tecnico:       "No disponible: el técnico pertenece al módulo operativo de Servicio.js; Cotizacion no tiene relación con esa colección.",
     },
   };
 }
