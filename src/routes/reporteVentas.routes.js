@@ -27,6 +27,18 @@ import {
   obtenerServiciosFacturados,
   validarFiltrosServicios,
 } from "../services/reporteVentasServicios.service.js";
+import {
+  obtenerRefaccionesFacturadas,
+  validarFiltrosRefacciones,
+} from "../services/reporteVentasRefacciones.service.js";
+import {
+  obtenerRentasActivas,
+  validarFiltrosRentas,
+} from "../services/reporteVentasRentas.service.js";
+import {
+  obtenerReporteComisiones,
+  validarFiltrosComisiones,
+} from "../services/reporteComisiones.service.js";
 
 const router = Router();
 const soloDeveloperYGerencia = requireRol("developer", "gerencia");
@@ -119,9 +131,103 @@ router.get(
 );
 
 // ════════════════════════════════════════════════════════════════════════════
+//  GET /api/reportes/ventas/refacciones
+//  Fuente: Cotizacion tipo="refacciones" estatus="facturada"
+//  Mismo patrón exacto que /ventas/servicios.
+// ════════════════════════════════════════════════════════════════════════════
+router.get(
+  "/ventas/refacciones",
+  auth,
+  soloDeveloperYGerencia,
+  async (req, res) => {
+    try {
+      const { desde, hasta } = req.query;
+      const validacion = validarFiltrosRefacciones({ desde, hasta });
+      if (!validacion.ok) {
+        return res.status(400).json({ message: validacion.mensaje });
+      }
+      const resultado = await obtenerRefaccionesFacturadas({
+        desde,
+        hasta,
+        asesorId:  req.query.asesorId,
+        clienteId: req.query.clienteId,
+        buscar:    req.query.buscar,
+        page:      req.query.page,
+        limit:     req.query.limit,
+        sortBy:    req.query.sortBy,
+        sortDir:   req.query.sortDir,
+      });
+      res.json(resultado);
+    } catch (err) {
+      console.error("[GET /api/reportes/ventas/refacciones]", err);
+      res.status(500).json({ message: "Error al generar el reporte de refacciones" });
+    }
+  }
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+//  GET /api/reportes/ventas/rentas
+//  Fuente: Renta estatus="activa"
+//  Filtra por fechaInicio. Comisión calculada desde fechaInicio (sin fechaPago).
+// ════════════════════════════════════════════════════════════════════════════
+router.get(
+  "/ventas/rentas",
+  auth,
+  soloDeveloperYGerencia,
+  async (req, res) => {
+    try {
+      const { desde, hasta } = req.query;
+      const validacion = validarFiltrosRentas({ desde, hasta });
+      if (!validacion.ok) {
+        return res.status(400).json({ message: validacion.mensaje });
+      }
+      const resultado = await obtenerRentasActivas({
+        desde,
+        hasta,
+        asesorId:  req.query.asesorId,
+        clienteId: req.query.clienteId,
+        buscar:    req.query.buscar,
+        page:      req.query.page,
+        limit:     req.query.limit,
+        sortBy:    req.query.sortBy,
+        sortDir:   req.query.sortDir,
+      });
+      res.json(resultado);
+    } catch (err) {
+      console.error("[GET /api/reportes/ventas/rentas]", err);
+      res.status(500).json({ message: "Error al generar el reporte de rentas" });
+    }
+  }
+);
+
+// ════════════════════════════════════════════════════════════════════════════
+//  GET /api/reportes/ventas/comisiones
+//  Reporte unificado: Equipos + Servicios + Refacciones + Rentas, por asesor.
+// ════════════════════════════════════════════════════════════════════════════
+router.get(
+  "/ventas/comisiones",
+  auth,
+  soloDeveloperYGerencia,
+  async (req, res) => {
+    try {
+      const { desde, hasta, asesorId } = req.query;
+      const validacion = validarFiltrosComisiones({ desde, hasta });
+      if (!validacion.ok) {
+        return res.status(400).json({ message: validacion.mensaje });
+      }
+      const resultado = await obtenerReporteComisiones({ desde, hasta, asesorId });
+      res.json(resultado);
+    } catch (err) {
+      console.error("[GET /api/reportes/ventas/comisiones]", err);
+      res.status(500).json({ message: "Error al generar el reporte de comisiones" });
+    }
+  }
+);
+
+// ════════════════════════════════════════════════════════════════════════════
 //  Categorías pendientes
 // ════════════════════════════════════════════════════════════════════════════
-const PENDIENTES = ["rentas", "refacciones", "otros"];
+const PENDIENTES = ["otros"];
 
 for (const cat of PENDIENTES) {
   router.get(
