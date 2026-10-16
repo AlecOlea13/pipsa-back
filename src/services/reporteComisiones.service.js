@@ -92,7 +92,18 @@ export async function obtenerReporteComisiones(filtros = {}) {
     }
   }
 
-  acumularDesdeOperaciones(equipos?.operaciones,     "equipos",     op => op.venta?.asesor);
+  // NOTA: a diferencia de Servicios/Refacciones/Rentas (que traen `asesor` y
+  // `comision` en la raíz de cada operación), Equipos anida TODO bajo
+  // `op.venta` (op.venta.asesor, op.venta.comision) — ver
+  // reporteVentasEquipos.service.js. Por eso Equipos usa un mapeo propio que
+  // "aplana" la operación antes de pasarla a acumularDesdeOperaciones, en vez
+  // de leer op.comision directo como las otras 3 categorías.
+  const equiposAplanados = (equipos?.operaciones ?? []).map(op => ({
+    asesor: op.venta?.asesor ?? null,
+    comision: op.venta?.comision ?? null,
+  }));
+
+  acumularDesdeOperaciones(equiposAplanados,         "equipos",     op => op.asesor);
   acumularDesdeOperaciones(servicios?.operaciones,   "servicios",   op => op.asesor);
   acumularDesdeOperaciones(refacciones?.operaciones, "refacciones", op => op.asesor);
   acumularDesdeOperaciones(rentas?.operaciones,      "rentas",      op => op.asesor);
