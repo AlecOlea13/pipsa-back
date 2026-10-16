@@ -48,32 +48,35 @@ function numSeguro(v) {
 }
 
 /**
- * Calcula la comisión de una venta de equipo según la política de días de cobro.
- * El tiempo corre desde venta.fecha (fecha de factura) hasta venta.fechaPago.
- * Si no hay fechaPago, devuelve null (pendiente de cobro).
+ * Calcula la comisión de una venta de equipo.
  *
- * Tabla (solo por días — el factor de margen se aplica manualmente por Dirección):
- *   0–30 días  → 3.0%
- *   31–60 días → 2.0%
- *   61–90 días → 1.0%
- *   > 90 días  → 0.0%  (requiere autorización según política)
+ * REGLA DE NEGOCIO (confirmada con el usuario): a diferencia de Servicios/
+ * Refacciones/Rentas, Equipos NO espera una fechaPago registrada aparte.
+ * Cuando un Montacargas se marca como "vendido" es porque ya se facturó
+ * y ya se cobró — el ciclo de cobro de equipos nunca pasa de 7 días en la
+ * práctica. Por eso SIEMPRE cae en el primer tramo de la tabla de días
+ * (0–30 días → 3%), y se aplica un 3% fijo sobre montoFacturado sin
+ * necesitar ninguna fecha de pago capturada.
+ *
+ * Si en algún momento se vuelve a capturar venta.fechaPago (el campo sigue
+ * existiendo en el modelo), este cálculo simplemente ignora esa fecha: el
+ * 3% fijo aplica por el solo hecho de estar "vendido". Si la política de
+ * negocio cambiara (ventas que sí tardan más de 7 días en cobrarse), este
+ * es el único lugar que habría que tocar para volver a calcular por días
+ * reales en vez de un fijo.
  *
  * @returns {porcentaje: number, diasCobro: number, monto: number} | null
  */
 function calcularComisionEquipo(venta) {
-  if (!venta?.fecha || !venta?.fechaPago) return null;
+  if (!venta?.fecha) return null; // sin fecha de venta no hay nada que calcular
 
-  const diasCobro  = diasEntreFechas(venta.fecha, venta.fechaPago);
-  const porcentaje = calcularPorcentajePorDias(diasCobro);
+  const PORCENTAJE_FIJO_EQUIPOS = 3; // 0–30 días según la tabla, siempre aplica aquí
 
   // Base = venta.montoFacturado (subtotal SIN IVA de la parte facturada).
-  // El modelo de Montacargas ya separa montoFacturado de ivaFacturado y
-  // montoEfectivo, así que aquí no se necesita el fallback de división —
-  // solo aplica cuando falta el campo de subtotal por completo.
   const subtotalSinIva = numSeguro(venta.montoFacturado);
-  const monto = round2(subtotalSinIva * (porcentaje / 100));
+  const monto = round2(subtotalSinIva * (PORCENTAJE_FIJO_EQUIPOS / 100));
 
-  return { diasCobro, porcentaje, monto, subtotalSinIva };
+  return { diasCobro: 0, porcentaje: PORCENTAJE_FIJO_EQUIPOS, monto, subtotalSinIva };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -368,7 +371,7 @@ export async function obtenerEquiposVendidos(filtros = {}) {
     operacionesSinPago,
     montoTotalComisiones:     comisionAcumulada,       // comisión acumulada de TODO el filtro
     ventaAcumuladaAntesIva,                             // suma de montoFacturado (subtotal sin IVA)
-    advertenciaMargen:     "El % de comisión mostrado corresponde únicamente al plazo de cobro. El porcentaje final depende también del margen bruto de la operación según la política de comisiones vigente.",
+    advertenciaMargen:     "Equipos aplica 3% fijo sobre el subtotal facturado: al marcarse \"vendido\" se asume que ya fue cobrado (el ciclo de cobro de equipos no pasa de 7 días). El % final depende también del margen bruto de la operación según la política de comisiones vigente.",
   };
 
   return {

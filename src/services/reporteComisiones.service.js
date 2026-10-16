@@ -7,10 +7,14 @@
  * no duplicar lógica de cálculo — este archivo solo orquesta y suma.
  *
  * Cada categoría conserva su propia regla de "qué cuenta":
- *   - Equipos:     Montacargas vendido, comisión requiere fechaPago registrada.
+ *   - Equipos:     Montacargas vendido → comisión 3% fija sobre el subtotal
+ *                  facturado (se asume cobrado de inmediato, no requiere
+ *                  fechaPago — ver reporteVentasEquipos.service.js).
  *   - Servicios:   Cotizacion tipo=servicio facturada, comisión requiere fechaPago.
  *   - Refacciones: Cotizacion tipo=refacciones facturada, comisión requiere fechaPago.
- *   - Rentas:      Renta activa, comisión calculada desde fechaInicio (sin fechaPago).
+ *   - Rentas:      Renta activa, comisión requiere una CuentaCobrar vinculada
+ *                  (rentaId) y cobrada; sin eso aparece "Pendiente de pago"
+ *                  (ver reporteVentasRentas.service.js).
  */
 
 import { obtenerEquiposVendidos }      from "./reporteVentasEquipos.service.js";
@@ -121,7 +125,7 @@ export async function obtenerReporteComisiones(filtros = {}) {
       rentas:      rentas      !== null,
     },
     meta: {
-      advertencia: "Equipos, Servicios y Refacciones requieren fecha de pago registrada para generar comisión. Rentas calcula la comisión desde la fecha de inicio, ya que no tiene fecha de pago separada. El % final de cada operación depende también del margen bruto según la política vigente.",
+      advertencia: "Equipos aplica 3% fijo (se asume cobrado al marcarse vendido). Servicios y Refacciones requieren fecha de pago registrada. Rentas requiere una factura (CxC) vinculada y cobrada — mientras no la haya, la renta aparece como \"Pendiente de pago\". El % final de cada operación depende también del margen bruto según la política vigente.",
     },
   };
 }
