@@ -29,6 +29,9 @@ const cxcSchema = new mongoose.Schema(
     rfcReceptor:    { type: String, trim: true },
     nombreReceptor: { type: String, trim: true },
     conceptos:      [conceptoSchema],
+
+    // ── NUEVO: vínculo con Renta (detectado por número económico al subir la factura) ──
+    rentaId:        { type: mongoose.Schema.Types.ObjectId, ref: "Renta", default: null },
     subtotal:       { type: Number, default: 0 },
     iva:            { type: Number, default: 0 },
     total:          { type: Number, default: 0 },
@@ -52,5 +55,6 @@ cxcSchema.index({ rfcReceptor: 1 });
 cxcSchema.index({ fechaEmision: -1 });
 cxcSchema.index({ fechaVencimiento: 1 });
 cxcSchema.index({ estatus: 1, nombreReceptor: 1 });
+cxcSchema.index({ rentaId: 1 });
 
 export default mongoose.model("CuentaCobrar", cxcSchema);

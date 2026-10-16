@@ -14,6 +14,11 @@ export async function createCxc(req, res) {
   try {
     const body = { ...req.body };
 
+    // Normaliza rentaId: solo lo persiste si viene un ObjectId válido no vacío
+    if (!body.rentaId) {
+      body.rentaId = null;
+    }
+
     // ── Validación de duplicados ────────────────────────────────
     // 1. Si viene UUID, es la clave más confiable
     if (body.uuid) {
