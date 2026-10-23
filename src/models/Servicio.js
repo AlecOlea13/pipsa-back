@@ -14,7 +14,10 @@ const ubicacionSchema = new mongoose.Schema({
 const servicioSchema = new mongoose.Schema(
   {
     folio:            { type: String, required: true, unique: true, trim: true },
-    montacargas:      { type: mongoose.Schema.Types.ObjectId, ref: "Montacargas", required: true },
+    // Un servicio es de un equipo Pipsa (montacargas) O de un equipo del cliente, nunca ambos.
+    montacargas:      { type: mongoose.Schema.Types.ObjectId, ref: "Montacargas", default: null,
+                        required: function () { return !this.equipoCliente; } },
+    equipoCliente:    { type: mongoose.Schema.Types.ObjectId, ref: "EquipoCliente", default: null },
     cliente:          { type: mongoose.Schema.Types.ObjectId, ref: "Cliente" },
     tipoServicio:     { type: mongoose.Schema.Types.ObjectId, ref: "TipoServicio", default: null },
     tecnicoAsignado:  { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },

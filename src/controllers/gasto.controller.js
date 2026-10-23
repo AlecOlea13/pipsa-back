@@ -17,6 +17,7 @@ export async function getGastos(req, res) {
       .sort({ fechaEmision: -1 });
     res.json(gastos);
   } catch (e) {
+    console.error("[gastos]", e);
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
@@ -34,6 +35,7 @@ export async function createGasto(req, res) {
     ]);
     res.status(201).json(gasto);
   } catch (e) {
+    console.error("[gastos] createGasto:", e);
     if (e.code === 11000) return res.status(409).json({ message: "Este XML ya fue registrado (UUID duplicado)" });
     res.status(500).json({ message: "Error en el servidor" });
   }
@@ -68,6 +70,7 @@ export async function updateGasto(req, res) {
 
     res.json(gasto);
   } catch (e) {
+    console.error("[gastos]", e);
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
@@ -77,6 +80,7 @@ export async function deleteGasto(req, res) {
     await Gasto.findByIdAndDelete(req.params.id);
     res.json({ message: "Gasto eliminado" });
   } catch (e) {
+    console.error("[gastos]", e);
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
@@ -115,6 +119,7 @@ export async function pagarGasto(req, res) {
 
     res.json(gasto);
   } catch (e) {
+    console.error("[gastos]", e);
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
@@ -182,6 +187,7 @@ export async function agregarPagoParcial(req, res) {
 
     res.json(gasto);
   } catch (e) {
+    console.error("[gastos]", e);
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
@@ -237,6 +243,7 @@ export async function cancelarGasto(req, res) {
     if (!gasto) return res.status(404).json({ message: "Gasto no encontrado" });
     res.json(gasto);
   } catch (e) {
+    console.error("[gastos]", e);
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
@@ -287,6 +294,7 @@ export async function pagarGastoMultiple(req, res) {
 
     res.json(gastos);
   } catch (e) {
+    console.error("[gastos]", e);
     res.status(500).json({ message: "Error en el servidor" });
   }
 }
