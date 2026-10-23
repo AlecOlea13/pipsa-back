@@ -42,4 +42,7 @@ const gastoSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// El listado ordena por fechaEmision: sin índice Mongo ordena en memoria y revienta a los 32 MB.
+gastoSchema.index({ fechaEmision: -1 });
+
 export default mongoose.model("Gasto", gastoSchema);

@@ -14,7 +14,9 @@ export async function getGastos(req, res) {
     const gastos = await Gasto.find()
       .populate("asesor",    "nombre")
       .populate("proveedor", "nombre email")
-      .sort({ fechaEmision: -1 });
+      .sort({ fechaEmision: -1 })
+      // Respaldo: si el índice aún no existe, permite ordenar en disco (>32 MB)
+      .allowDiskUse(true);
     res.json(gastos);
   } catch (e) {
     console.error("[gastos]", e);
