@@ -36,6 +36,7 @@ import encuestaRoutes      from "./routes/encuesta.routes.js";
 import hallazgoRoutes       from "./routes/hallazgo.routes.js";
 import reporteClienteRoutes from "./routes/reporteCliente.routes.js";
 import reporteVentasRoutes  from "./routes/reporteVentas.routes.js";
+import equipoClienteRoutes from "./routes/equipoCliente.routes.js";
 import { seedHallazgos }    from "./controllers/hallazgo.controller.js";
 
 dns.setServers(['1.1.1.1', '8.8.8.8']);
@@ -120,6 +121,7 @@ app.use("/api/encuestas",        encuestaRoutes);
 app.use("/api/hallazgos",        hallazgoRoutes);
 app.use("/api/reportes-cliente", reporteClienteRoutes);
 app.use("/api/reportes",         reporteVentasRoutes);
+app.use("/api/equipos-cliente", equipoClienteRoutes);
 
 const MONGO_URI = process.env.MONGO_URI;
 if (!MONGO_URI) console.error('❌ Falta MONGO_URI en el .env');
