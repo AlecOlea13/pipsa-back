@@ -55,7 +55,7 @@ function numSeguro(v) {
  * Cuando un Montacargas se marca como "vendido" es porque ya se facturó
  * y ya se cobró — el ciclo de cobro de equipos nunca pasa de 7 días en la
  * práctica. Por eso SIEMPRE cae en el primer tramo de la tabla de días
- * (0–30 días → 3%), y se aplica un 3% fijo sobre montoFacturado sin
+ * (0–30 días → 3%), y se aplica un 3% fijo sobre (montoFacturado + montoEfectivo), ambos sin IVA, sin
  * necesitar ninguna fecha de pago capturada.
  *
  * Si en algún momento se vuelve a capturar venta.fechaPago (el campo sigue
@@ -72,8 +72,10 @@ function calcularComisionEquipo(venta) {
 
   const PORCENTAJE_FIJO_EQUIPOS = 3; // 0–30 días según la tabla, siempre aplica aquí
 
-  // Base = venta.montoFacturado (subtotal SIN IVA de la parte facturada).
-  const subtotalSinIva = numSeguro(venta.montoFacturado);
+  // Base = subtotal facturado SIN IVA + monto en efectivo (el efectivo no lleva IVA,
+  // y también comisiona). NUNCA se usa el IVA ni el importe total con IVA.
+  // (`subtotalSinIva` conserva el nombre por compatibilidad con el resto del reporte.)
+  const subtotalSinIva = round2(numSeguro(venta.montoFacturado) + numSeguro(venta.montoEfectivo));
   const monto = round2(subtotalSinIva * (PORCENTAJE_FIJO_EQUIPOS / 100));
 
   return { diasCobro: 0, porcentaje: PORCENTAJE_FIJO_EQUIPOS, monto, subtotalSinIva };
@@ -318,7 +320,7 @@ export async function obtenerEquiposVendidos(filtros = {}) {
       venta: {
         fecha:             m.venta?.fecha        ?? null,
         importe:           importeGuardado,
-        montoFacturado,     // subtotal SIN IVA — base real de la comisión
+        montoFacturado,     // subtotal SIN IVA (junto con montoEfectivo forma la base de la comisión)
         ivaFacturado,
         montoEfectivo,
         importeCalculado,
@@ -327,7 +329,7 @@ export async function obtenerEquiposVendidos(filtros = {}) {
         numeroFactura:     m.venta?.numeroFactura ?? null,
         fechaPago:         m.venta?.fechaPago     ?? null,
         notas:             m.venta?.notas         ?? null,
-        // Comisión calculada por días de cobro, SOBRE SUBTOTAL SIN IVA (montoFacturado).
+        // Comisión calculada por días de cobro, SOBRE (montoFacturado + montoEfectivo), ambos sin IVA.
         // null si aún no se ha registrado la fecha de pago.
         comision:          calcularComisionEquipo(m.venta),
         // Campos explícitos pedidos por el reporte (mismo dato que `comision`, aplanado)
@@ -347,7 +349,7 @@ export async function obtenerEquiposVendidos(filtros = {}) {
 
   // ── Comisión acumulada sobre TODO el filtro (no solo la página actual) ────
   const docsParaComision = await Montacargas.find(match)
-    .select("venta.fecha venta.fechaPago venta.montoFacturado")
+    .select("venta.fecha venta.fechaPago venta.montoFacturado venta.montoEfectivo")
     .lean();
 
   let comisionAcumulada       = 0;
@@ -356,7 +358,7 @@ export async function obtenerEquiposVendidos(filtros = {}) {
   let ventaAcumuladaAntesIva  = 0;
 
   for (const m of docsParaComision) {
-    ventaAcumuladaAntesIva = round2(ventaAcumuladaAntesIva + numSeguro(m.venta?.montoFacturado));
+    ventaAcumuladaAntesIva = round2(ventaAcumuladaAntesIva + numSeguro(m.venta?.montoFacturado) + numSeguro(m.venta?.montoEfectivo));
     const c = calcularComisionEquipo(m.venta);
     if (c) {
       operacionesConPago++;
@@ -370,8 +372,8 @@ export async function obtenerEquiposVendidos(filtros = {}) {
     operacionesConPago,
     operacionesSinPago,
     montoTotalComisiones:     comisionAcumulada,       // comisión acumulada de TODO el filtro
-    ventaAcumuladaAntesIva,                             // suma de montoFacturado (subtotal sin IVA)
-    advertenciaMargen:     "Equipos aplica 3% fijo sobre el subtotal facturado: al marcarse \"vendido\" se asume que ya fue cobrado (el ciclo de cobro de equipos no pasa de 7 días). El % final depende también del margen bruto de la operación según la política de comisiones vigente.",
+    ventaAcumuladaAntesIva,                             // suma de montoFacturado + montoEfectivo (sin IVA)
+    advertenciaMargen:     "Equipos aplica 3% fijo sobre el subtotal facturado (sin IVA) más el monto en efectivo: al marcarse \"vendido\" se asume que ya fue cobrado (el ciclo de cobro de equipos no pasa de 7 días). El % final depende también del margen bruto de la operación según la política de comisiones vigente.",
   };
 
   return {

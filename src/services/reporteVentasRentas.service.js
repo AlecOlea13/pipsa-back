@@ -9,24 +9,25 @@
  * - Solo cuentan las rentas con estatus "activa". En cuanto pasan a
  *   "terminada" dejan de contar en este reporte. "vencida" tampoco cuenta
  *   como activa (ver mongoose enum del modelo: activa | vencida | terminada).
- * - Base de comisión = renta.precioMensual, que YA ES SIN IVA (confirmado).
- * - La comisión YA NO se calcula directo desde fechaInicio hasta "hoy".
- *   Ahora espera confirmación real de pago, igual que Equipos/Servicios/
- *   Refacciones: se busca un CuentaCobrar con ese rentaId vinculado y
- *   estatus "cobrada". Si existe, la comisión se calcula con la fecha real
- *   de pago (cxc.fechaPago) contra renta.fechaInicio. Si no existe ningún
- *   CxC pagada vinculada, la renta aparece como "Pendiente de pago" sin
- *   comisión calculada.
+ * - La comisión se genera POR PAGO, no por renta: cada CuentaCobrar vinculada
+ *   (rentaId) y "cobrada" comisiona su subtotal SIN IVA completo, aunque la
+ *   factura cubra 2 o 3 meses por adelantado. Esa comisión cuenta en el MES
+ *   EN QUE SE COBRÓ (cxc.fechaPago), no se reparte entre los meses cubiertos.
+ * - % por días de cobro: fecha de emisión de la factura → fecha de pago
+ *   (respaldo: renta.fechaInicio si la factura no trae fechaEmision).
+ * - El filtro de fechas (desde/hasta) se aplica sobre cxc.fechaPago: la
+ *   comisión de una renta en un rango es la suma de sus pagos cobrados dentro
+ *   de ese rango. Una renta activa sin pagos en el rango aparece como
+ *   "Pendiente de pago" (sin comisión en ese periodo).
  * - El vínculo CxC↔Renta se guarda en CuentaCobrar.rentaId, detectado
  *   automáticamente al subir la factura por número económico (ver
- *   CuentasCobrar.tsx → saveCxc()).
- * - El filtro de fechas (desde/hasta) se aplica sobre fechaInicio.
+ *   CuentasCobrar.tsx → saveCxc()) o con el script de backfill.
  */
 
 import mongoose    from "mongoose";
 import Renta        from "../models/Renta.js";
 import CuentaCobrar from "../models/CuentaCobrar.js";
-import { calcularPorcentajePorDias, diasEntreFechas, round2, numSeguro } from "./comisiones.util.js";
+import { calcularPorcentajePorDias, diasEntreFechas, resolverSubtotal, convertirAMXN, TIPO_CAMBIO_USD, round2, numSeguro } from "./comisiones.util.js";
 
 function fechaLocalMX(str, esFinDelDia = false) {
   if (!str || typeof str !== "string") return null;
@@ -69,53 +70,87 @@ export function buildMatchRentas({ asesorId, clienteId } = {}) {
 }
 
 /**
- * Comisión de una renta: base = precioMensual (sin IVA), referencia = fechaInicio.
- * Requiere un CuentaCobrar vinculado (rentaId) y cobrado (estatus:"cobrada")
- * para poder calcularse. Sin eso, retorna null y el llamador debe mostrar
- * "Pendiente de pago".
- *
- * @param {object} renta  documento Renta (lean)
- * @param {object|null} cxcPagada  CuentaCobrar vinculado con estatus "cobrada", o null
+ * Comisión de UN pago (una CuentaCobrar cobrada).
+ * Base = subtotal SIN IVA de la factura (resolverSubtotal; respaldo total/1.16).
+ * Días = fecha de emisión de la factura → fecha de pago.
  */
-function calcularComisionRenta(renta, cxcPagada) {
-  if (!renta?.fechaInicio) return null;
-  if (!cxcPagada?.fechaPago) return null; // sin pago confirmado → no hay comisión aún
+function calcularComisionPago(renta, cxc) {
+  if (!cxc?.fechaPago) return null;
+  const fechaReferencia = cxc.fechaEmision ?? renta?.fechaInicio;
+  if (!fechaReferencia) return null;
 
-  const diasCobro  = diasEntreFechas(renta.fechaInicio, cxcPagada.fechaPago);
+  const diasCobro  = diasEntreFechas(fechaReferencia, cxc.fechaPago);
   const porcentaje = calcularPorcentajePorDias(diasCobro);
-  const subtotalSinIva = numSeguro(renta.precioMensual);
-  const monto = round2(subtotalSinIva * (porcentaje / 100));
+  const { subtotalSinIva } = resolverSubtotal(cxc);
+  const moneda = String(cxc.moneda ?? "MXN").toUpperCase();
+  const monto  = convertirAMXN(subtotalSinIva * (porcentaje / 100), moneda); // siempre MXN
   return {
+    moneda,
+    tipoCambio: moneda === "USD" ? TIPO_CAMBIO_USD : 1,
+    cxcId: cxc._id,
+    folioFactura: cxc.folioFactura ?? null,
+    fechaFactura: fechaReferencia,
+    fechaPago: cxc.fechaPago,
     diasCobro,
     porcentaje,
-    monto,
     subtotalSinIva,
-    fechaPago: cxcPagada.fechaPago,
-    cxcId: cxcPagada._id,
-    folioFactura: cxcPagada.folioFactura ?? null,
+    monto,
   };
 }
 
 /**
- * Busca, para un conjunto de rentaIds, el CuentaCobrar "cobrada" más reciente
- * vinculado a cada una. Si una renta tiene varias facturas cobradas (meses
- * distintos), toma la de fechaPago más reciente como referencia del estado
- * de comisión vigente.
+ * Comisión de una renta en el periodo = suma de la comisión de cada pago
+ * cobrado dentro del periodo (ver mapaPagosPorRenta). Devuelve null si no hay
+ * ningún pago → el llamador muestra "Pendiente de pago".
+ *
+ * `porcentaje` es el efectivo (monto total / base total); `pagos` trae el
+ * detalle por factura.
  */
-async function mapaCxcPagadaPorRenta(rentaIds) {
+function calcularComisionRenta(renta, pagos) {
+  const calculados = (pagos ?? []).map(p => calcularComisionPago(renta, p)).filter(Boolean);
+  if (!calculados.length) return null;
+
+  const monto = round2(calculados.reduce((a, p) => a + p.monto, 0));
+  const base  = round2(calculados.reduce((a, p) => a + p.subtotalSinIva * p.tipoCambio, 0)); // base en MXN
+  const ultimo = calculados.reduce((a, p) => (new Date(p.fechaPago) > new Date(a.fechaPago) ? p : a));
+  return {
+    diasCobro:      ultimo.diasCobro,
+    porcentaje:     base > 0 ? round2((monto / base) * 100) : ultimo.porcentaje,
+    monto,
+    subtotalSinIva: base,
+    fechaPago:      ultimo.fechaPago,
+    cxcId:          ultimo.cxcId,
+    folioFactura:   ultimo.folioFactura,
+    pagosCount:     calculados.length,
+    pagos:          calculados,
+  };
+}
+
+/**
+ * Pagos cobrados por renta. Trae TODAS las CuentaCobrar "cobrada" vinculadas
+ * (rentaId) cuyo fechaPago cae dentro del rango [desde, hasta] (si se dan).
+ * Cada una comisiona por separado en el mes en que se cobró.
+ */
+async function mapaPagosPorRenta(rentaIds, desde, hasta) {
   if (!rentaIds.length) return new Map();
-  const cxcs = await CuentaCobrar.find({
-    rentaId: { $in: rentaIds },
-    estatus: "cobrada",
-  })
-    .select("rentaId fechaPago folioFactura total")
-    .sort({ fechaPago: -1 })
+  const filtro = { rentaId: { $in: rentaIds }, estatus: "cobrada", fechaPago: { $ne: null } };
+  const fDesde = desde ? fechaLocalMX(desde, false) : null;
+  const fHasta = hasta ? fechaLocalMX(hasta, true)  : null;
+  if (fDesde || fHasta) {
+    filtro.fechaPago = {};
+    if (fDesde) filtro.fechaPago.$gte = fDesde;
+    if (fHasta) filtro.fechaPago.$lte = fHasta;
+  }
+  const cxcs = await CuentaCobrar.find(filtro)
+    .select("rentaId fechaEmision fechaPago folioFactura subtotal iva total moneda")
+    .sort({ fechaPago: 1 })
     .lean();
 
   const mapa = new Map();
   for (const c of cxcs) {
     const key = String(c.rentaId);
-    if (!mapa.has(key)) mapa.set(key, c); // ya viene ordenado desc, se queda con la más reciente
+    if (!mapa.has(key)) mapa.set(key, []);
+    mapa.get(key).push(c);
   }
   return mapa;
 }
@@ -225,11 +260,11 @@ export async function obtenerRentasActivas(filtros = {}) {
   const docsPagina = docs.slice((page - 1) * limit, (page - 1) * limit + limit);
 
   // ── Vínculo con CxC pagada (comisión real solo si hay pago confirmado) ────
-  const mapaCxc = await mapaCxcPagadaPorRenta(docs.map(r => r._id));
+  const mapaCxc = await mapaPagosPorRenta(docs.map(r => r._id), desde, hasta);
 
   const operaciones = docsPagina.map(r => {
-    const cxcPagada = mapaCxc.get(String(r._id)) ?? null;
-    const comisionCalc = calcularComisionRenta(r, cxcPagada);
+    const pagosRenta   = mapaCxc.get(String(r._id)) ?? [];
+    const comisionCalc = calcularComisionRenta(r, pagosRenta);
     const subtotal = numSeguro(r.precioMensual);
     const iva3 = round2(subtotal * 0.16);
     return {
@@ -254,8 +289,8 @@ export async function obtenerRentasActivas(filtros = {}) {
       } : null,
       cliente: r.cliente ? { id: r.cliente._id, nombre: r.cliente.nombre } : null,
       asesor:  r.asesor  ? { id: r.asesor._id, nombre: r.asesor.nombre }   : null,
-      // Comisión real: solo existe si hay un CxC vinculado y cobrado.
-      // Si cxcPagada es null, la renta está "Pendiente de pago".
+      // Comisión del periodo: suma de los pagos (CxC cobradas) dentro del rango.
+      // Sin pagos en el rango → "Pendiente de pago".
       comision: comisionCalc,
       porcentajeComision: comisionCalc?.porcentaje ?? null,
       comisionAntesIva:   comisionCalc?.monto ?? null,
@@ -267,8 +302,7 @@ export async function obtenerRentasActivas(filtros = {}) {
   let comisionAcumulada = 0;
   let operacionesConPago = 0;
   for (const r of docs) {
-    const cxcPagada = mapaCxc.get(String(r._id)) ?? null;
-    const c = calcularComisionRenta(r, cxcPagada);
+    const c = calcularComisionRenta(r, mapaCxc.get(String(r._id)) ?? []);
     if (c) {
       comisionAcumulada = round2(comisionAcumulada + c.monto);
       operacionesConPago += 1;
@@ -283,7 +317,7 @@ export async function obtenerRentasActivas(filtros = {}) {
     subtotalAcumulado: sub,
     ivaAcumulado: iva,
     totalFacturadoAcumulado: round2(sub + iva),
-    advertenciaMargen: "El % corresponde al plazo entre el inicio de la renta y la fecha real de pago registrada en CxC. El % final depende también del margen bruto según la política de comisiones vigente.",
+    advertenciaMargen: "Cada pago cobrado comisiona su subtotal sin IVA completo en el mes en que se cobró (aunque cubra varios meses por adelantado). El % corresponde al plazo entre la emisión de la factura y su pago. El % final depende también del margen bruto según la política de comisiones vigente.",
   };
 
   return {
@@ -294,8 +328,8 @@ export async function obtenerRentasActivas(filtros = {}) {
     paginacion: { page, limit, total: totalFiltrado, pages: Math.ceil(totalFiltrado / limit) },
     disponibilidad: { facturacionConciliada: false, cobranza: false, saldo: false },
     meta: {
-      fuenteFecha: "renta.fechaInicio",
-      advertencia: "Solo se muestran rentas con estatus \"activa\". La comisión solo se calcula cuando existe una factura (CuentaCobrar) vinculada a la renta por número económico y ya marcada como cobrada; mientras no haya pago confirmado, la renta aparece como \"Pendiente de pago\".",
+      fuenteFecha: "cuentaCobrar.fechaPago",
+      advertencia: "Solo se muestran rentas con estatus \"activa\". La comisión se genera por cada factura (CuentaCobrar) vinculada a la renta y marcada como cobrada, sobre su subtotal sin IVA, en el mes en que se cobró (cxc.fechaPago, filtrada por el rango de fechas). Si la renta no tiene pagos en el periodo, aparece como \"Pendiente de pago\".",
       manoObra: "No aplica a rentas.",
       tecnico: "No aplica a rentas.",
     },

@@ -42,7 +42,7 @@ function numSeguro(v) {
 
 /**
  * Calcula la comisión de un servicio según días de cobro.
- * Base: cotizacion.total. Referencia de tiempo: cotizacion.fecha → cotizacion.fechaPago.
+ * Base: subtotal SIN IVA (comisiones.util.js → resolverSubtotal). Referencia de tiempo: cotizacion.fechaFacturada (o fecha) → cotizacion.fechaPago.
  *
  *   0–30 días  → 3.0%
  *   31–60 días → 2.0%
@@ -68,6 +68,8 @@ function calcularComisionServicio(cotizacion) {
     monto:          resultado.comision,
     subtotalSinIva: resultado.subtotalSinIva,
     esCalculado:    resultado.esCalculado,
+    moneda:         resultado.moneda,      // moneda del documento (subtotalSinIva va en esta moneda)
+    tipoCambio:     resultado.tipoCambio,  // 1 si MXN; TIPO_CAMBIO_USD si USD. `monto` ya está en MXN
   };
 }
 

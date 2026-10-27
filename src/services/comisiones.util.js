@@ -10,6 +10,20 @@
 
 const TASA_IVA = 0.16;
 
+/**
+ * Tipo de cambio USD→MXN para convertir comisiones de documentos en dólares.
+ * Es una tarifa FIJA (no se actualiza a diario). Para cambiarla: variable de
+ * entorno TIPO_CAMBIO_USD en Vercel, o editar el 18.80 de abajo.
+ * (El frontend tiene la misma constante en Cotizaciones.tsx → TIPO_CAMBIO_USD.)
+ */
+export const TIPO_CAMBIO_USD = Number(process.env.TIPO_CAMBIO_USD) > 0 ? Number(process.env.TIPO_CAMBIO_USD) : 18.8;
+
+/** Convierte un monto a MXN según la moneda del documento (MXN o sin moneda → sin cambio). */
+export function convertirAMXN(monto, moneda) {
+  const m = numSeguro(monto);
+  return String(moneda ?? "MXN").toUpperCase() === "USD" ? round2(m * TIPO_CAMBIO_USD) : round2(m);
+}
+
 /** Redondea a 2 decimales de forma segura (evita errores de punto flotante). */
 export function round2(n) {
   const v = Number(n);
@@ -122,8 +136,10 @@ export function diasEntreFechas(fechaReferencia, fechaPago) {
  *   diasCobro: number,
  *   porcentaje: number,
  *   subtotalSinIva: number,
- *   comision: number,
- *   esCalculado: boolean
+ *   comision: number,        // en MXN (convertida si el documento es USD)
+ *   esCalculado: boolean,
+ *   moneda: string,
+ *   tipoCambio: number
  * } | null}  null si falta fechaReferencia o fechaPago
  */
 export function calcularComision({ doc, fechaReferencia, fechaPago }) {
@@ -132,7 +148,11 @@ export function calcularComision({ doc, fechaReferencia, fechaPago }) {
   const diasCobro  = diasEntreFechas(fechaReferencia, fechaPago);
   const porcentaje = calcularPorcentajePorDias(diasCobro);
   const { subtotalSinIva, esCalculado } = resolverSubtotal(doc);
-  const comision = round2(subtotalSinIva * (porcentaje / 100));
+  // La comisión se reporta SIEMPRE en MXN: si el documento es USD se convierte
+  // con el tipo de cambio fijo. subtotalSinIva queda en la moneda original.
+  const moneda     = String(doc?.moneda ?? "MXN").toUpperCase();
+  const comision   = convertirAMXN(subtotalSinIva * (porcentaje / 100), moneda);
+  const tipoCambio = moneda === "USD" ? TIPO_CAMBIO_USD : 1;
 
-  return { diasCobro, porcentaje, subtotalSinIva, comision, esCalculado };
+  return { diasCobro, porcentaje, subtotalSinIva, comision, esCalculado, moneda, tipoCambio };
 }
