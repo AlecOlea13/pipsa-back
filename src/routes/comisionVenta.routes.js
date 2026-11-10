@@ -6,7 +6,8 @@
  *   app.use("/api/comisiones", comisionVentaRoutes);
  *
  * Acceso: developer, gerencia y oficina.
- *  - oficina (vendedores): solo ven/editan/borran LO QUE ELLOS CAPTURARON.
+ *  - oficina (vendedores): solo ven/capturan/editan/borran lo de SU asesor (se liga
+ *    el usuario con el asesor por campo asesor/asesorId o por nombre idéntico).
  *  - developer y gerencia: ven todo, filtran por asesor y pueden editar/borrar.
  */
 import { Router } from "express";
@@ -21,15 +22,48 @@ const router = Router();
 const acceso = requireRol("developer", "gerencia", "oficina");
 const esAdmin = (req) => ["developer", "gerencia"].includes(req.userRol);
 
+/** ¿Puede este usuario tocar esta línea? (admin, o es suya por asesor/creador) */
+async function esMia(req, linea) {
+  if (esAdmin(req)) return true;
+  if (String(linea.creadoPor) === String(req.userId)) return true;
+  const yo = await miAsesor(req);
+  return !!yo && String(linea.asesor) === String(yo._id);
+}
+
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const round2 = (n) => Math.round((num(n) + Number.EPSILON) * 100) / 100;
 const TASA_IVA = 0.16;
 
 const TIPOS = ["equipo", "renta", "refacciones", "servicio", "otro"];
-const POPULATE = [
-  { path: "asesor",    select: "nombre" },
-  { path: "creadoPor", select: "nombre" },
-];
+const POPULATE = [{ path: "asesor", select: "nombre" }];
+
+// ── Asesor ligado al usuario en sesión ─────────────────────────────────────
+// Se busca primero un campo asesor/asesorId en el usuario; si no existe, se
+// empareja por NOMBRE (sin acentos ni mayúsculas) contra la colección Asesor.
+const norm = (s) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase().replace(/\s+/g, " ").trim();
+
+async function miAsesor(req) {
+  try {
+    const User = mongoose.models.User ?? mongoose.models.Usuario;
+    const Asesor = mongoose.models.Asesor;
+    if (!User || !Asesor) return null;
+    const u = await User.findById(req.userId).lean();
+    if (!u) return null;
+    const directo = u.asesor ?? u.asesorId;
+    if (directo && mongoose.isValidObjectId(directo)) {
+      const a = await Asesor.findById(directo).select("nombre").lean();
+      if (a) return a;
+    }
+    const nombre = norm(u.nombre ?? u.name);
+    if (!nombre) return null;
+    const todos = await Asesor.find().select("nombre").lean();
+    return todos.find((a) => norm(a.nombre) === nombre) ?? null;
+  } catch (e) {
+    console.error("[comisiones/miAsesor]", e);
+    return null;
+  }
+}
 
 const periodoValido = (p) => typeof p === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(p);
 const fechaOrNull = (v) => {
@@ -70,12 +104,26 @@ function validar(d) {
   return null;
 }
 
+// ── GET /mi-asesor ─────────────────────────────────────────────────────────
+router.get("/mi-asesor", auth, acceso, async (req, res) => {
+  if (esAdmin(req)) return res.json({ admin: true, asesor: null });
+  const a = await miAsesor(req);
+  res.json({ admin: false, asesor: a ? { _id: a._id, nombre: a.nombre } : null });
+});
+
 // ── GET /origenes?tipo=equipo|renta|refacciones|servicio&buscar=&asesorId= ──
 // Lista de ventas seleccionables para precargar la línea.
 router.get("/origenes", auth, acceso, async (req, res) => {
   try {
-    const { tipo, buscar = "", asesorId } = req.query;
+    const { tipo, buscar = "" } = req.query;
+    let { asesorId } = req.query;
     const q = String(buscar).trim().toLowerCase();
+    // Vendedor (oficina): SOLO sus propias ventas. Sin asesor ligado → nada.
+    if (!esAdmin(req)) {
+      const yo = await miAsesor(req);
+      if (!yo) return res.json([]);
+      asesorId = String(yo._id);
+    }
     const asesorOk = asesorId && mongoose.isValidObjectId(asesorId);
     let items = [];
 
@@ -155,8 +203,13 @@ router.get("/", auth, acceso, async (req, res) => {
       filtro.periodo = periodo;
     }
     if (tipo && TIPOS.includes(tipo)) filtro.tipo = tipo;
-    if (!esAdmin(req)) filtro.creadoPor = req.userId;
-    if (asesorId && mongoose.isValidObjectId(asesorId)) filtro.asesor = asesorId;
+    if (!esAdmin(req)) {
+      const yo = await miAsesor(req);
+      if (yo) filtro.asesor = yo._id;          // todo lo de MI asesor
+      else filtro.creadoPor = req.userId;      // sin asesor ligado: solo lo que yo capturé
+    } else if (asesorId && mongoose.isValidObjectId(asesorId)) {
+      filtro.asesor = asesorId;
+    }
 
     const lineas = await ComisionVenta.find(filtro).populate(POPULATE).sort({ periodo: -1, createdAt: -1 }).lean();
 
@@ -188,6 +241,11 @@ router.get("/", auth, acceso, async (req, res) => {
 router.post("/", auth, acceso, async (req, res) => {
   try {
     const data = limpiarBody(req.body ?? {});
+    if (!esAdmin(req)) {
+      const yo = await miAsesor(req);
+      if (!yo) return res.status(403).json({ message: "Tu usuario no está ligado a un asesor. Pide que lo den de alta con tu mismo nombre." });
+      data.asesor = yo._id;                    // el vendedor solo captura a su nombre
+    }
     const err = validar(data);
     if (err) return res.status(400).json({ message: err });
     const doc = await ComisionVenta.create({ ...data, creadoPor: req.userId });
@@ -204,10 +262,11 @@ router.put("/:id", auth, acceso, async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "ID inválido." });
     const actual = await ComisionVenta.findById(req.params.id);
     if (!actual) return res.status(404).json({ message: "No encontrada." });
-    if (!esAdmin(req) && String(actual.creadoPor) !== String(req.userId))
+    if (!(await esMia(req, actual)))
       return res.status(403).json({ message: "Solo puedes editar tus propias comisiones." });
 
     const data = limpiarBody({ ...actual.toObject(), ...req.body });
+    if (!esAdmin(req)) data.asesor = actual.asesor;   // un vendedor no puede reasignar a otro asesor
     const err = validar(data);
     if (err) return res.status(400).json({ message: err });
     actual.set(data);
@@ -225,7 +284,7 @@ router.delete("/:id", auth, acceso, async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "ID inválido." });
     const actual = await ComisionVenta.findById(req.params.id);
     if (!actual) return res.status(404).json({ message: "No encontrada." });
-    if (!esAdmin(req) && String(actual.creadoPor) !== String(req.userId))
+    if (!(await esMia(req, actual)))
       return res.status(403).json({ message: "Solo puedes borrar tus propias comisiones." });
     await actual.deleteOne();
     res.json({ ok: true });
