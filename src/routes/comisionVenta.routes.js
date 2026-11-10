@@ -133,16 +133,26 @@ router.get("/origenes", auth, acceso, async (req, res) => {
       const docs = await Montacargas.find(filtro)
         .select("numeroEconomico marca modelo venta")
         .populate("venta.asesor", "nombre")
-        .sort({ "venta.fecha": -1 }).limit(300).lean();
-      items = docs.map((m) => ({
+        .populate("venta.permuta.equipoRecibido", "numeroEconomico marca modelo")
+        .sort({ "venta.fecha": -1 }).limit(500).lean();
+      items = docs.map((m) => {
+        const pe = m.venta?.permuta;
+        const recibido = pe?.activa
+          ? (pe.equipoRecibido?.numeroEconomico
+              ? `${pe.equipoRecibido.numeroEconomico} ${pe.equipoRecibido.marca ?? ""} ${pe.equipoRecibido.modelo ?? ""}`.trim()
+              : (pe.equipoRecibidoTexto || "equipo recibido"))
+          : "";
+        return { m, recibido, forma: pe?.diferenciaForma ?? "" };
+      }).map(({ m, recibido, forma }) => ({
         origenRef: "Montacargas", origenId: m._id,
         referencia: m.numeroEconomico ?? "",
-        descripcion: [m.marca, m.modelo].filter(Boolean).join(" "),
+        descripcion: [[m.marca, m.modelo].filter(Boolean).join(" "),
+          recibido ? `Permuta: recibió ${recibido}${forma ? ` · diferencia ${forma}` : ""}` : ""].filter(Boolean).join(" · "),
         cliente: m.venta?.clienteNombre ?? "",
         asesor: m.venta?.asesor?._id ?? null, asesorNombre: m.venta?.asesor?.nombre ?? "",
         fechaVenta: m.venta?.fecha ?? null, fechaPago: m.venta?.fechaPago ?? null,
         moneda: "MXN",
-        // Equipos: facturado sin IVA + efectivo
+        // Equipos: facturado sin IVA + efectivo (en permuta = la diferencia de dinero)
         subtotal: round2(num(m.venta?.montoFacturado) + num(m.venta?.montoEfectivo)),
       }));
     } else if (tipo === "renta") {
@@ -162,12 +172,13 @@ router.get("/origenes", auth, acceso, async (req, res) => {
         moneda: "MXN", subtotal: round2(r.precioMensual), // ya es sin IVA
       }));
     } else if (tipo === "refacciones" || tipo === "servicio") {
-      const filtro = { tipo, estatus: { $ne: "cancelada" } };
+      // Solo cotizaciones FACTURADAS de ese tipo (las activas aún no son venta).
+      const filtro = { tipo, estatus: "facturada" };
       if (asesorOk) filtro.asesor = asesorId;
       const docs = await Cotizacion.find(filtro)
         .select("folio cliente clienteOcasional asesor fecha fechaFacturada fechaPago subtotal total moneda numeroFactura")
         .populate("cliente", "nombre").populate("asesor", "nombre")
-        .sort({ fecha: -1 }).limit(300).lean();
+        .sort({ fechaFacturada: -1, fecha: -1 }).limit(1000).lean();
       items = docs.map((c) => ({
         origenRef: "Cotizacion", origenId: c._id,
         referencia: c.folio ?? "", descripcion: c.numeroFactura ? `Factura ${c.numeroFactura}` : "",

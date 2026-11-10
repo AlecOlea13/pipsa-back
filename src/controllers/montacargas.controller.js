@@ -7,6 +7,7 @@ export async function getMontacargas(req, res) {
       .populate("clienteActual", "nombre")
       .populate("venta.cliente", "nombre")
       .populate("venta.asesor", "nombre")
+      .populate("venta.permuta.equipoRecibido", "numeroEconomico marca modelo")
       .sort({ numeroEconomico: 1 });
     res.json(montas);
   } catch (e) {
@@ -19,7 +20,8 @@ export async function getMonta(req, res) {
     const monta = await Montacargas.findById(req.params.id)
       .populate("clienteActual", "nombre")
       .populate("venta.cliente", "nombre")
-      .populate("venta.asesor", "nombre");
+      .populate("venta.asesor", "nombre")
+      .populate("venta.permuta.equipoRecibido", "numeroEconomico marca modelo");
     if (!monta) return res.status(404).json({ message: "Montacargas no encontrado" });
     res.json(monta);
   } catch (e) {
@@ -87,12 +89,48 @@ export async function regresarMonta(req, res) {
 }
 
 // ── POST /montacargas/:id/vender ──
+// ── Permuta: normaliza el bloque y deriva los montos ──────────────────────
+// Si es permuta, el cliente captura UNA diferencia + cómo se pagó:
+//   facturado               → montoFacturado = diferencia (sin IVA)
+//   efectivo / transferencia → montoEfectivo = diferencia (sin factura)
+// La comisión (3% sobre facturado + efectivo) queda sobre la diferencia.
+function resolverMontosPermuta(body) {
+  const p = body.permuta;
+  if (!p || !p.activa) {
+    return {
+      permuta: { activa: false, equipoRecibido: null, equipoRecibidoTexto: "", valorEquipoRecibido: 0, diferenciaForma: "" },
+      facturado: Number(body.montoFacturado) || 0,
+      efectivo:  Number(body.montoEfectivo)  || 0,
+      error: null,
+    };
+  }
+  const diferencia = Number(p.diferencia) || 0;
+  const forma = ["efectivo", "transferencia", "facturado"].includes(p.diferenciaForma) ? p.diferenciaForma : "";
+  const tieneEquipo = (p.equipoRecibido && String(p.equipoRecibido).length > 0) || String(p.equipoRecibidoTexto ?? "").trim();
+  if (!tieneEquipo) return { error: "Indica el equipo que se recibe en permuta." };
+  if (!forma)       return { error: "Indica cómo se pagó la diferencia (efectivo, transferencia o facturado)." };
+  if (diferencia <= 0) return { error: "Captura la diferencia de dinero (mayor a 0)." };
+  return {
+    permuta: {
+      activa: true,
+      equipoRecibido:      p.equipoRecibido || null,
+      equipoRecibidoTexto: String(p.equipoRecibidoTexto ?? "").trim(),
+      valorEquipoRecibido: Number(p.valorEquipoRecibido) || 0,
+      diferenciaForma:     forma,
+    },
+    facturado: forma === "facturado" ? diferencia : 0,
+    efectivo:  forma === "facturado" ? 0 : diferencia,
+    error: null,
+  };
+}
+
 export async function marcarVendido(req, res) {
   try {
-    const { montoFacturado, montoEfectivo, numeroFactura, fecha, clienteId, clienteNombre, asesorId, notas } = req.body;
+    const { numeroFactura, fecha, clienteId, clienteNombre, asesorId, notas } = req.body;
 
-    const facturado = Number(montoFacturado) || 0;
-    const efectivo  = Number(montoEfectivo)  || 0;
+    const r = resolverMontosPermuta(req.body);
+    if (r.error) return res.status(400).json({ message: r.error });
+    const { facturado, efectivo, permuta } = r;
 
     if (facturado <= 0 && efectivo <= 0) {
       return res.status(400).json({ message: "Captura al menos un monto facturado o en efectivo" });
@@ -122,13 +160,15 @@ export async function marcarVendido(req, res) {
       clienteNombre:  clienteNombre || "",
       asesor:         asesorId     || null,
       notas:          notas        || "",
+      permuta,
     };
 
     await monta.save();
 
     const populated = await Montacargas.findById(monta._id)
       .populate("venta.cliente", "nombre")
-      .populate("venta.asesor", "nombre");
+      .populate("venta.asesor", "nombre")
+      .populate("venta.permuta.equipoRecibido", "numeroEconomico marca modelo");
 
     res.json(populated);
   } catch (e) {
@@ -140,10 +180,11 @@ export async function marcarVendido(req, res) {
 // ── PUT /montacargas/:id/editar-venta ──
 export async function editarVenta(req, res) {
   try {
-    const { montoFacturado, montoEfectivo, numeroFactura, fecha, clienteId, clienteNombre, asesorId, notas } = req.body;
+    const { numeroFactura, fecha, clienteId, clienteNombre, asesorId, notas } = req.body;
 
-    const facturado = Number(montoFacturado) || 0;
-    const efectivo  = Number(montoEfectivo)  || 0;
+    const r = resolverMontosPermuta(req.body);
+    if (r.error) return res.status(400).json({ message: r.error });
+    const { facturado, efectivo, permuta } = r;
 
     if (facturado <= 0 && efectivo <= 0) {
       return res.status(400).json({ message: "Captura al menos un monto facturado o en efectivo" });
@@ -174,13 +215,15 @@ export async function editarVenta(req, res) {
       clienteNombre:  clienteNombre || "",
       asesor:         asesorId     || null,
       notas:          notas        || "",
+      permuta,
     };
 
     await monta.save();
 
     const populated = await Montacargas.findById(monta._id)
       .populate("venta.cliente", "nombre")
-      .populate("venta.asesor", "nombre");
+      .populate("venta.asesor", "nombre")
+      .populate("venta.permuta.equipoRecibido", "numeroEconomico marca modelo");
 
     res.json(populated);
   } catch (e) {
@@ -224,6 +267,7 @@ export async function reporteVentas(req, res) {
     const vendidos = await Montacargas.find(filtro)
       .populate("venta.cliente", "nombre")
       .populate("venta.asesor", "nombre")
+      .populate("venta.permuta.equipoRecibido", "numeroEconomico marca modelo")
       .sort({ "venta.fecha": -1 });
 
     const totalImporte = vendidos.reduce((acc, m) => acc + (m.venta?.importe ?? 0), 0);

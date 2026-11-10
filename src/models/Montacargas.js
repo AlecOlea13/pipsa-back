@@ -56,6 +56,16 @@ const montacargasSchema = new mongoose.Schema(
       clienteNombre:  { type: String, trim: true, default: "" },
       asesor:         { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", default: null },
       notas:          { type: String, trim: true, default: "" },
+      // Permuta: el cliente entrega un equipo a cambio de otro y solo paga la
+      // diferencia. La comisión se calcula sobre la DIFERENCIA (sin IVA), que
+      // es lo que queda en montoFacturado (si es facturada) o montoEfectivo.
+      permuta: {
+        activa:              { type: Boolean, default: false },
+        equipoRecibido:      { type: mongoose.Schema.Types.ObjectId, ref: "Montacargas", default: null },
+        equipoRecibidoTexto: { type: String, trim: true, default: "" },   // marca/modelo/# si no está en el catálogo
+        valorEquipoRecibido: { type: Number, default: 0 },                // crédito que se le dio (informativo)
+        diferenciaForma:     { type: String, enum: ["efectivo", "transferencia", "facturado", ""], default: "" },
+      },
     },
   },
   { timestamps: true }
