@@ -248,6 +248,88 @@ export async function editarVenta(req, res) {
   }
 }
 
+// ── POST /montacargas/:id/permuta ──
+// :id = equipo YA VENDIDO que el cliente nos regresa.
+// Body: nuevoEquipoId (el que sale ahora), diferencia (sin IVA), diferenciaForma
+//       (efectivo | transferencia | facturado), numeroFactura, fecha (factura nueva),
+//       fechaPago, valorEquipoRecibido, asesorId, notas.
+// Efecto: el equipo regresado queda "disponible" (su venta se anula) y el nuevo
+// queda "vendido" a ese mismo cliente, con la permuta ligada. La comisión se
+// calcula sobre la diferencia, antes de IVA.
+export async function permutaVenta(req, res) {
+  try {
+    const { nuevoEquipoId, diferencia, diferenciaForma, numeroFactura, fecha, fechaPago, valorEquipoRecibido, asesorId, notas } = req.body;
+
+    const regresado = await Montacargas.findById(req.params.id);
+    if (!regresado) return res.status(404).json({ message: "Equipo no encontrado" });
+    if (regresado.estatus !== "vendido") return res.status(400).json({ message: "El equipo que regresa debe estar marcado como vendido." });
+
+    if (!nuevoEquipoId) return res.status(400).json({ message: "Selecciona el equipo que sale en su lugar." });
+    if (String(nuevoEquipoId) === String(regresado._id)) return res.status(400).json({ message: "El equipo nuevo no puede ser el mismo que regresa." });
+    const nuevo = await Montacargas.findById(nuevoEquipoId);
+    if (!nuevo) return res.status(404).json({ message: "El equipo nuevo no existe." });
+    if (nuevo.estatus === "vendido") return res.status(400).json({ message: "El equipo nuevo ya está vendido." });
+
+    const dif = Number(diferencia) || 0;
+    if (dif <= 0) return res.status(400).json({ message: "Captura la diferencia de dinero (mayor a 0)." });
+    if (!["efectivo", "transferencia", "facturado"].includes(diferenciaForma))
+      return res.status(400).json({ message: "Indica cómo se pagó la diferencia." });
+
+    const facturado = diferenciaForma === "facturado" ? dif : 0;
+    const efectivo  = diferenciaForma === "facturado" ? 0 : dif;
+    const iva       = parseFloat((facturado * 0.16).toFixed(2));
+    const importe   = parseFloat((facturado + iva + efectivo).toFixed(2));
+
+    // Datos del cliente y asesor: se heredan de la venta que se anula
+    const vOld = regresado.venta ?? {};
+    const cliente        = vOld.cliente ?? null;
+    const clienteNombre  = vOld.clienteNombre ?? "";
+    const asesor         = asesorId || vOld.asesor || null;
+
+    // 1) El equipo que regresa vuelve a inventario y su venta se anula
+    regresado.estatus       = "disponible";
+    regresado.clienteActual = null;
+    regresado.venta = { fecha: null, importe: 0, cliente: null, clienteNombre: "", asesor: null, notas: "" };
+    await regresado.save();
+
+    // 2) El equipo nuevo queda vendido con la permuta ligada
+    nuevo.estatus       = "vendido";
+    nuevo.clienteActual = null;
+    nuevo.venta = {
+      fecha:          fecha ? new Date(fecha) : new Date(),
+      importe,
+      montoFacturado: facturado,
+      ivaFacturado:   iva,
+      numeroFactura:  numeroFactura || "",
+      montoEfectivo:  efectivo,
+      fechaPago:      fechaPago ? new Date(fechaPago) : null,
+      cliente,
+      clienteNombre,
+      asesor,
+      notas:          notas || "",
+      permuta: {
+        activa: true,
+        equipoRecibido: regresado._id,
+        equipoRecibidoTexto: "",
+        valorEquipoRecibido: Number(valorEquipoRecibido) || 0,
+        diferenciaForma,
+      },
+    };
+    await nuevo.save();
+
+    const poblar = (q) => q
+      .populate("clienteActual", "nombre")
+      .populate("venta.cliente", "nombre")
+      .populate("venta.asesor", "nombre")
+      .populate("venta.permuta.equipoRecibido", "numeroEconomico marca modelo");
+    const [r, n] = await Promise.all([poblar(Montacargas.findById(regresado._id)), poblar(Montacargas.findById(nuevo._id))]);
+    res.json({ regresado: r, nuevo: n });
+  } catch (e) {
+    console.error("Error permutaVenta:", e);
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+}
+
 // ── POST /montacargas/:id/deshacer-venta ──
 export async function deshacerVenta(req, res) {
   try {
