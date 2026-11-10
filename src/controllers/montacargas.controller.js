@@ -124,6 +124,20 @@ function resolverMontosPermuta(body) {
   };
 }
 
+// El equipo que el cliente entrega en permuta regresa a nuestro inventario.
+// Si estaba "vendido", sale de Vendidos y queda "disponible" (su venta anterior
+// se anula: ya no cuenta en reportes ni comisiones).
+async function regresarEquipoPorPermuta(permuta, ventaId) {
+  const id = permuta?.activa ? permuta.equipoRecibido : null;
+  if (!id || String(id) === String(ventaId)) return;
+  const recibido = await Montacargas.findById(id);
+  if (!recibido || recibido.estatus !== "vendido") return;
+  recibido.estatus       = "disponible";
+  recibido.clienteActual = null;
+  recibido.venta = { fecha: null, importe: 0, cliente: null, clienteNombre: "", asesor: null, notas: "" };
+  await recibido.save();
+}
+
 export async function marcarVendido(req, res) {
   try {
     const { numeroFactura, fecha, clienteId, clienteNombre, asesorId, notas } = req.body;
@@ -164,6 +178,7 @@ export async function marcarVendido(req, res) {
     };
 
     await monta.save();
+    await regresarEquipoPorPermuta(permuta, monta._id);
 
     const populated = await Montacargas.findById(monta._id)
       .populate("venta.cliente", "nombre")
@@ -219,6 +234,7 @@ export async function editarVenta(req, res) {
     };
 
     await monta.save();
+    await regresarEquipoPorPermuta(permuta, monta._id);
 
     const populated = await Montacargas.findById(monta._id)
       .populate("venta.cliente", "nombre")
