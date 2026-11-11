@@ -234,6 +234,23 @@ router.get("/", auth, acceso, async (req, res) => {
 
     const lineas = await ComisionVenta.find(filtro).populate(POPULATE).sort({ periodo: -1, createdAt: -1 }).lean();
 
+    // Líneas guardadas sin factura (capturadas antes de que existiera el campo):
+    // se completa SOLO AL MOSTRAR desde la venta de origen. Lo guardado no cambia.
+    const sinFactura = lineas.filter((l) => !l.factura && l.origenId);
+    if (sinFactura.length) {
+      const ids = (ref) => sinFactura.filter((l) => l.origenRef === ref).map((l) => l.origenId);
+      const [cots, montas, cxcs] = await Promise.all([
+        Cotizacion.find({ _id: { $in: ids("Cotizacion") } }).select("numeroFactura").lean(),
+        Montacargas.find({ _id: { $in: ids("Montacargas") } }).select("venta.numeroFactura").lean(),
+        CuentaCobrar.find({ rentaId: { $in: ids("Renta") } }).select("rentaId folioFactura createdAt").sort({ createdAt: -1 }).lean(),
+      ]);
+      const mapa = {};
+      for (const c of cots)   if (c.numeroFactura) mapa[String(c._id)] = c.numeroFactura;
+      for (const m of montas) if (m.venta?.numeroFactura) mapa[String(m._id)] = m.venta.numeroFactura;
+      for (const x of cxcs)   if (x.folioFactura && !mapa[String(x.rentaId)]) mapa[String(x.rentaId)] = x.folioFactura;
+      for (const l of sinFactura) l.factura = mapa[String(l.origenId)] ?? "";
+    }
+
     // Resumen por asesor y por tipo
     const porAsesor = {}, porTipo = {};
     let total = 0;
