@@ -1,3 +1,11 @@
+/**
+ * ComisionVenta.js  →  src/models/ComisionVenta.js
+ *
+ * Línea de comisión capturada por el vendedor (reemplaza el Excel).
+ * Se precarga desde una venta de equipo / renta / cotización, pero los datos
+ * se GUARDAN COPIADOS: si el origen cambia después, el reporte del mes no se mueve.
+ * Todo es editable. La comisión es un monto en MXN que captura el vendedor.
+ */
 import mongoose from "mongoose";
 
 const comisionVentaSchema = new mongoose.Schema(
@@ -10,6 +18,7 @@ const comisionVentaSchema = new mongoose.Schema(
 
     referencia:  { type: String, trim: true, default: "" },   // # económico / folio
     descripcion: { type: String, trim: true, default: "" },
+    factura:     { type: String, trim: true, default: "" },   // # de factura (editable)
     cliente:     { type: String, trim: true, default: "" },
 
     asesor:    { type: mongoose.Schema.Types.ObjectId, ref: "Asesor", required: true },

@@ -17,6 +17,7 @@ import ComisionVenta from "../models/ComisionVenta.js";
 import Montacargas from "../models/Montacargas.js";
 import Renta from "../models/Renta.js";
 import Cotizacion from "../models/Cotizacion.js";
+import CuentaCobrar from "../models/CuentaCobrar.js";
 
 const router = Router();
 const acceso = requireRol("developer", "gerencia", "oficina");
@@ -80,6 +81,7 @@ function limpiarBody(b) {
     origenId:    b.origenId && mongoose.isValidObjectId(b.origenId) ? b.origenId : null,
     referencia:  String(b.referencia ?? "").trim(),
     descripcion: String(b.descripcion ?? "").trim(),
+    factura:     String(b.factura ?? "").trim(),
     cliente:     String(b.cliente ?? "").trim(),
     asesor:      b.asesor?._id ?? b.asesor,
     fechaVenta:  fechaOrNull(b.fechaVenta),
@@ -147,6 +149,7 @@ router.get("/origenes", auth, acceso, async (req, res) => {
       }).map(({ m, recibido, forma }) => ({
         origenRef: "Montacargas", origenId: m._id,
         referencia: m.numeroEconomico ?? "",
+        factura: m.venta?.numeroFactura ?? "",
         descripcion: [[m.marca, m.modelo].filter(Boolean).join(" "),
           recibido ? `Permuta: recibió ${recibido}${forma ? ` · diferencia ${forma}` : ""}` : ""].filter(Boolean).join(" · "),
         cliente: m.venta?.cliente?.nombre ?? m.venta?.clienteNombre ?? "",
@@ -163,7 +166,13 @@ router.get("/origenes", auth, acceso, async (req, res) => {
         .populate("cliente", "nombre").populate("asesor", "nombre")
         .populate("montacargas", "numeroEconomico marca modelo")
         .sort({ createdAt: -1 }).limit(300).lean();
+      // Factura: la de la cuenta por cobrar más reciente ligada a la renta
+      const cxcs = await CuentaCobrar.find({ rentaId: { $in: docs.map((d) => d._id) } })
+        .select("rentaId folioFactura createdAt").sort({ createdAt: -1 }).lean();
+      const facturaDeRenta = {};
+      for (const x of cxcs) { const k = String(x.rentaId); if (!facturaDeRenta[k] && x.folioFactura) facturaDeRenta[k] = x.folioFactura; }
       items = docs.map((r) => ({
+        factura: facturaDeRenta[String(r._id)] ?? "",
         origenRef: "Renta", origenId: r._id,
         referencia: r.montacargas?.numeroEconomico ?? "",
         descripcion: [r.montacargas?.marca, r.montacargas?.modelo].filter(Boolean).join(" ") + " (renta mensual)",
@@ -182,7 +191,7 @@ router.get("/origenes", auth, acceso, async (req, res) => {
         .sort({ fechaFacturada: -1, fecha: -1 }).limit(1000).lean();
       items = docs.map((c) => ({
         origenRef: "Cotizacion", origenId: c._id,
-        referencia: c.folio ?? "", descripcion: c.numeroFactura ? `Factura ${c.numeroFactura}` : "",
+        referencia: c.folio ?? "", descripcion: "", factura: c.numeroFactura ?? "",
         cliente: c.cliente?.nombre ?? c.clienteOcasional?.nombre ?? "",
         asesor: c.asesor?._id ?? null, asesorNombre: c.asesor?.nombre ?? "",
         fechaVenta: c.fechaFacturada ?? c.fecha ?? null, fechaPago: c.fechaPago ?? null,
@@ -195,7 +204,7 @@ router.get("/origenes", auth, acceso, async (req, res) => {
 
     if (q) {
       items = items.filter((i) =>
-        `${i.referencia} ${i.descripcion} ${i.cliente} ${i.asesorNombre}`.toLowerCase().includes(q));
+        `${i.referencia} ${i.factura ?? ""} ${i.descripcion} ${i.cliente} ${i.asesorNombre}`.toLowerCase().includes(q));
     }
     res.json(items.slice(0, 100));
   } catch (e) {
