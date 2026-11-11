@@ -133,6 +133,7 @@ router.get("/origenes", auth, acceso, async (req, res) => {
       const docs = await Montacargas.find(filtro)
         .select("numeroEconomico marca modelo venta")
         .populate("venta.asesor", "nombre")
+        .populate("venta.cliente", "nombre")
         .populate("venta.permuta.equipoRecibido", "numeroEconomico marca modelo")
         .sort({ "venta.fecha": -1 }).limit(500).lean();
       items = docs.map((m) => {
@@ -148,7 +149,7 @@ router.get("/origenes", auth, acceso, async (req, res) => {
         referencia: m.numeroEconomico ?? "",
         descripcion: [[m.marca, m.modelo].filter(Boolean).join(" "),
           recibido ? `Permuta: recibió ${recibido}${forma ? ` · diferencia ${forma}` : ""}` : ""].filter(Boolean).join(" · "),
-        cliente: m.venta?.clienteNombre ?? "",
+        cliente: m.venta?.cliente?.nombre ?? m.venta?.clienteNombre ?? "",
         asesor: m.venta?.asesor?._id ?? null, asesorNombre: m.venta?.asesor?.nombre ?? "",
         fechaVenta: m.venta?.fecha ?? null, fechaPago: m.venta?.fechaPago ?? null,
         moneda: "MXN",
