@@ -256,27 +256,32 @@ router.get("/resumen", auth, acceso, async (req, res) => {
       filtro.asesor = asesorId;
     }
 
-    const lineas = await ComisionVenta.find(filtro).select("periodo tipo comision asesor").populate(POPULATE).lean();
+    const lineas = await ComisionVenta.find(filtro)
+      .select("periodo tipo comision subtotal tipoCambio asesor").populate(POPULATE).lean();
 
-    const porMes = Object.fromEntries(periodos.map((p) => [p, { periodo: p, total: 0, cantidad: 0, porTipo: {} }]));
-    const porAsesor = {}, porTipo = {};
-    let total = 0;
+    // Ventas = subtotal SIN IVA, convertido a MXN (las líneas en USD llevan su tipo de cambio).
+    // Comisiones = monto en MXN capturado.
+    const vacio = () => ({ total: 0, porTipo: {} });
+    const sumar = (o, tipo, v) => { o.total = round2(o.total + v); o.porTipo[tipo] = round2((o.porTipo[tipo] ?? 0) + v); };
+    const porMes = Object.fromEntries(periodos.map((p) => [p, { periodo: p, cantidad: 0, ventas: vacio(), comisiones: vacio() }]));
+    const porAsesor = {}, global = { ventas: vacio(), comisiones: vacio() };
     for (const l of lineas) {
       const mm = porMes[l.periodo]; if (!mm) continue;
-      mm.total = round2(mm.total + l.comision);
+      const venta = round2(num(l.subtotal) * (num(l.tipoCambio) > 0 ? num(l.tipoCambio) : 1));
       mm.cantidad += 1;
-      mm.porTipo[l.tipo] = round2((mm.porTipo[l.tipo] ?? 0) + l.comision);
+      sumar(mm.ventas, l.tipo, venta);        sumar(mm.comisiones, l.tipo, l.comision);
+      sumar(global.ventas, l.tipo, venta);    sumar(global.comisiones, l.tipo, l.comision);
       const nom = l.asesor?.nombre ?? "Sin asesor";
-      porAsesor[nom] = round2((porAsesor[nom] ?? 0) + l.comision);
-      porTipo[l.tipo] = round2((porTipo[l.tipo] ?? 0) + l.comision);
-      total += l.comision;
+      porAsesor[nom] ??= { asesor: nom, ventas: 0, comision: 0 };
+      porAsesor[nom].ventas   = round2(porAsesor[nom].ventas + venta);
+      porAsesor[nom].comision = round2(porAsesor[nom].comision + l.comision);
     }
     res.json({
       periodos,
       meses: periodos.map((p) => porMes[p]),
-      porAsesor: Object.entries(porAsesor).map(([asesor, comision]) => ({ asesor, comision })).sort((a, b) => b.comision - a.comision),
-      porTipo,
-      total: round2(total),
+      porAsesor: Object.values(porAsesor),
+      ventas: global.ventas,
+      comisiones: global.comisiones,
     });
   } catch (e) {
     console.error("[comisiones/resumen]", e);
