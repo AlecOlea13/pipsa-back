@@ -10,7 +10,7 @@ import mongoose from "mongoose";
 
 const comisionVentaSchema = new mongoose.Schema(
   {
-    tipo: { type: String, enum: ["equipo", "renta", "refacciones", "servicio", "otro"], required: true },
+    tipo: { type: String, enum: ["equipo", "renta", "refacciones", "servicio", "venta", "otro"], required: true },
 
     // Origen (opcional: "otro" no tiene)
     origenRef: { type: String, enum: ["Montacargas", "Renta", "Cotizacion", null], default: null },

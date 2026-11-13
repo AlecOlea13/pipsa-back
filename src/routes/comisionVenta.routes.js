@@ -35,7 +35,7 @@ const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const round2 = (n) => Math.round((num(n) + Number.EPSILON) * 100) / 100;
 const TASA_IVA = 0.16;
 
-const TIPOS = ["equipo", "renta", "refacciones", "servicio", "otro"];
+const TIPOS = ["equipo", "renta", "refacciones", "servicio", "venta", "otro"];
 const POPULATE = [{ path: "asesor", select: "nombre" }];
 
 // ── Asesor ligado al usuario en sesión ─────────────────────────────────────
@@ -181,7 +181,7 @@ router.get("/origenes", auth, acceso, async (req, res) => {
         fechaVenta: r.fechaInicio ?? null, fechaPago: null,
         moneda: "MXN", subtotal: round2(r.precioMensual), // ya es sin IVA
       }));
-    } else if (tipo === "refacciones" || tipo === "servicio") {
+    } else if (tipo === "refacciones" || tipo === "servicio" || tipo === "venta") {
       // Solo cotizaciones FACTURADAS de ese tipo (las activas aún no son venta).
       const filtro = { tipo, estatus: "facturada" };
       if (asesorOk) filtro.asesor = asesorId;
@@ -199,7 +199,7 @@ router.get("/origenes", auth, acceso, async (req, res) => {
         subtotal: round2(num(c.subtotal) > 0 ? c.subtotal : num(c.total) / (1 + TASA_IVA)),
       }));
     } else {
-      return res.status(400).json({ message: "tipo debe ser equipo, renta, refacciones o servicio." });
+      return res.status(400).json({ message: "tipo debe ser equipo, renta, refacciones, servicio o venta." });
     }
 
     if (q) {
@@ -210,6 +210,62 @@ router.get("/origenes", auth, acceso, async (req, res) => {
   } catch (e) {
     console.error("[comisiones/origenes]", e);
     res.status(500).json({ message: "Error al cargar las ventas.", detalle: e.message });
+  }
+});
+
+// ── GET /resumen?hasta=AAAA-MM&meses=12&asesorId=&tipo= ────────────────────
+// Totales por mes (con desglose por tipo) para las gráficas. Mismas reglas de
+// visibilidad que el listado: oficina solo ve lo de su asesor.
+router.get("/resumen", auth, acceso, async (req, res) => {
+  try {
+    const hoy = new Date();
+    const mesHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
+    const hasta = periodoValido(req.query.hasta) ? req.query.hasta : mesHoy;
+    const n = Math.min(24, Math.max(1, parseInt(req.query.meses, 10) || 12));
+    const { asesorId, tipo } = req.query;
+
+    // Lista de periodos consecutivos terminando en "hasta"
+    let [y, m] = hasta.split("-").map(Number);
+    const periodos = [];
+    for (let i = 0; i < n; i++) {
+      periodos.unshift(`${y}-${String(m).padStart(2, "0")}`);
+      m -= 1; if (m === 0) { m = 12; y -= 1; }
+    }
+
+    const filtro = { periodo: { $gte: periodos[0], $lte: periodos[periodos.length - 1] } };
+    if (tipo && TIPOS.includes(tipo)) filtro.tipo = tipo;
+    if (!esAdmin(req)) {
+      const yo = await miAsesor(req);
+      if (yo) filtro.asesor = yo._id; else filtro.creadoPor = req.userId;
+    } else if (asesorId && mongoose.isValidObjectId(asesorId)) {
+      filtro.asesor = asesorId;
+    }
+
+    const lineas = await ComisionVenta.find(filtro).select("periodo tipo comision asesor").populate(POPULATE).lean();
+
+    const porMes = Object.fromEntries(periodos.map((p) => [p, { periodo: p, total: 0, cantidad: 0, porTipo: {} }]));
+    const porAsesor = {}, porTipo = {};
+    let total = 0;
+    for (const l of lineas) {
+      const mm = porMes[l.periodo]; if (!mm) continue;
+      mm.total = round2(mm.total + l.comision);
+      mm.cantidad += 1;
+      mm.porTipo[l.tipo] = round2((mm.porTipo[l.tipo] ?? 0) + l.comision);
+      const nom = l.asesor?.nombre ?? "Sin asesor";
+      porAsesor[nom] = round2((porAsesor[nom] ?? 0) + l.comision);
+      porTipo[l.tipo] = round2((porTipo[l.tipo] ?? 0) + l.comision);
+      total += l.comision;
+    }
+    res.json({
+      periodos,
+      meses: periodos.map((p) => porMes[p]),
+      porAsesor: Object.entries(porAsesor).map(([asesor, comision]) => ({ asesor, comision })).sort((a, b) => b.comision - a.comision),
+      porTipo,
+      total: round2(total),
+    });
+  } catch (e) {
+    console.error("[comisiones/resumen]", e);
+    res.status(500).json({ message: "Error al calcular las gráficas.", detalle: e.message });
   }
 });
 
