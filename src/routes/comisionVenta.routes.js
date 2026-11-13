@@ -181,6 +181,21 @@ router.get("/origenes", auth, acceso, async (req, res) => {
         fechaVenta: r.fechaInicio ?? null, fechaPago: null,
         moneda: "MXN", subtotal: round2(r.precioMensual), // ya es sin IVA
       }));
+
+      // También las cotizaciones de tipo "renta" ya FACTURADAS
+      const cotsRenta = await Cotizacion.find({ tipo: "renta", estatus: "facturada", ...(asesorOk ? { asesor: asesorId } : {}) })
+        .select("folio cliente clienteOcasional asesor fecha fechaFacturada fechaPago subtotal total moneda numeroFactura")
+        .populate("cliente", "nombre").populate("asesor", "nombre")
+        .sort({ fechaFacturada: -1, fecha: -1 }).limit(500).lean();
+      items.push(...cotsRenta.map((c) => ({
+        origenRef: "Cotizacion", origenId: c._id,
+        referencia: c.folio ?? "", descripcion: "Cotización de renta", factura: c.numeroFactura ?? "",
+        cliente: c.cliente?.nombre ?? c.clienteOcasional?.nombre ?? "",
+        asesor: c.asesor?._id ?? null, asesorNombre: c.asesor?.nombre ?? "",
+        fechaVenta: c.fechaFacturada ?? c.fecha ?? null, fechaPago: c.fechaPago ?? null,
+        moneda: c.moneda ?? "MXN",
+        subtotal: round2(num(c.subtotal) > 0 ? c.subtotal : num(c.total) / (1 + TASA_IVA)),
+      })));
     } else if (tipo === "refacciones" || tipo === "servicio" || tipo === "venta") {
       // Solo cotizaciones FACTURADAS de ese tipo (las activas aún no son venta).
       const filtro = { tipo, estatus: "facturada" };
@@ -206,7 +221,7 @@ router.get("/origenes", auth, acceso, async (req, res) => {
       items = items.filter((i) =>
         `${i.referencia} ${i.factura ?? ""} ${i.descripcion} ${i.cliente} ${i.asesorNombre}`.toLowerCase().includes(q));
     }
-    res.json(items.slice(0, 100));
+    res.json(items.slice(0, 250));
   } catch (e) {
     console.error("[comisiones/origenes]", e);
     res.status(500).json({ message: "Error al cargar las ventas.", detalle: e.message });
