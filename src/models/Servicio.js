@@ -16,7 +16,9 @@ const servicioSchema = new mongoose.Schema(
     folio:            { type: String, required: true, unique: true, trim: true },
     // Un servicio es de un equipo Pipsa (montacargas) O de un equipo del cliente, nunca ambos.
     montacargas:      { type: mongoose.Schema.Types.ObjectId, ref: "Montacargas", default: null,
-                        required: function () { return !this.equipoCliente; } },
+                        required: function () { return !this.equipoCliente && !this.equipoPorAsignar; } },
+    // Servicio creado sin equipo definido todavía (p. ej. revisión/levantamiento): se asigna después.
+    equipoPorAsignar: { type: Boolean, default: false },
     equipoCliente:    { type: mongoose.Schema.Types.ObjectId, ref: "EquipoCliente", default: null },
     cliente:          { type: mongoose.Schema.Types.ObjectId, ref: "Cliente" },
     tipoServicio:     { type: mongoose.Schema.Types.ObjectId, ref: "TipoServicio", default: null },

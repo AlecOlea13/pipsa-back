@@ -21,6 +21,10 @@ function conEquipo(servicio) {
   if (!o.montacargas && o.equipoCliente && typeof o.equipoCliente === "object") {
     o.montacargas = { ...o.equipoCliente, esDeCliente: true };
   }
+  // Sin equipo definido: se muestra como "Por asignar" en pantallas, PDFs y correos
+  if (!o.montacargas && !o.equipoCliente && o.equipoPorAsignar) {
+    o.montacargas = { numeroEconomico: "Por asignar", marca: "", porAsignar: true };
+  }
   return o;
 }
 
@@ -81,12 +85,21 @@ export async function createServicio(req, res) {
     if (!body.tecnicoAsignado) delete body.tecnicoAsignado;
     if (!body.cliente)         delete body.cliente;
 
-    // Exactamente uno: equipo Pipsa o equipo del cliente
+    // Exactamente uno: equipo Pipsa o equipo del cliente (o "equipo a asignar", sin ninguno)
+    const porAsignar = body.equipoPorAsignar === true || body.equipoPorAsignar === "true";
     const tieneMonta = !!body.montacargas;
     const tieneEqCli = !!body.equipoCliente;
-    if (tieneMonta === tieneEqCli)
-      return res.status(400).json({ message: "Selecciona un equipo: Pipsa o del cliente (uno solo)" });
-    if (tieneMonta) delete body.equipoCliente; else delete body.montacargas;
+    if (porAsignar) {
+      if (tieneMonta || tieneEqCli)
+        return res.status(400).json({ message: "Un servicio con equipo por asignar no lleva equipo todavía" });
+      delete body.montacargas; delete body.equipoCliente;
+      body.equipoPorAsignar = true;
+    } else {
+      if (tieneMonta === tieneEqCli)
+        return res.status(400).json({ message: "Selecciona un equipo: Pipsa o del cliente (uno solo)" });
+      if (tieneMonta) delete body.equipoCliente; else delete body.montacargas;
+      delete body.equipoPorAsignar;
+    }
 
     if (tieneEqCli) {
       const eq = await EquipoCliente.findById(body.equipoCliente).select("cliente");
@@ -148,10 +161,19 @@ export async function updateServicio(req, res) {
       return res.status(403).json({ message: "No tienes permiso para modificar este servicio" });
 
     const body = { ...req.body };
+    delete body.equipoPorAsignar;
     // Mantener la regla "uno u otro" si cambian el equipo desde la edición
     if (body.equipoCliente) body.montacargas = null;
     else if (body.montacargas) body.equipoCliente = null;
     else { delete body.montacargas; delete body.equipoCliente; }
+
+    // Al asignar el equipo real a un servicio "por asignar" se quita la marca
+    const asignaEquipo = !!(body.equipoCliente || body.montacargas);
+    if (asignaEquipo && servicio.equipoPorAsignar) {
+      body.equipoPorAsignar = false;
+      if (body.montacargas && servicio.estatus !== "cerrado")
+        await Montacargas.findByIdAndUpdate(body.montacargas, { estatus: "mantenimiento" });
+    }
 
     const actualizado = await Servicio.findByIdAndUpdate(req.params.id, body, { new: true });
     res.json(actualizado);
@@ -265,14 +287,40 @@ export async function cerrarServicio(req, res) {
       notasCierre, fotoHojaFirmada, fotoEquipoFinal, fotoRefacciones,
       firmaCliente,
       ubicacion,
+      equipoLevantamiento,
     } = req.body;
 
-    const esEquipoCliente = !servicioActual.montacargas && !!servicioActual.equipoCliente;
+    let esEquipoCliente = !servicioActual.montacargas && !!servicioActual.equipoCliente;
+    let sinEquipo = !servicioActual.montacargas && !servicioActual.equipoCliente; // "por asignar"
+
+    // Levantamiento: el técnico captura el equipo que tiene el cliente (marca, tipo, serie...).
+    // Se da de alta como equipo del cliente y queda ligado a este servicio.
+    let equipoNuevoId = null;
+    if (sinEquipo) {
+      const e = equipoLevantamiento ?? {};
+      const txt = v => (typeof v === "string" ? v.trim() : "");
+      const datos = {
+        numeroEconomico: txt(e.numeroEconomico), marca: txt(e.marca), modelo: txt(e.modelo),
+        serie: txt(e.serie), capacidad: txt(e.capacidad),
+        tipo: ["electrico", "gas", "diesel"].includes(e.tipo) ? e.tipo : "",
+      };
+      const hayDatos = datos.numeroEconomico || datos.marca || datos.modelo || datos.serie;
+      if (hayDatos) {
+        if (!servicioActual.cliente)
+          return res.status(400).json({ message: "El servicio no tiene cliente: asígnalo antes de registrar el equipo" });
+        const eq = await EquipoCliente.create({
+          ...datos, cliente: servicioActual.cliente, horometroActual: Number(horometro) || 0,
+        });
+        equipoNuevoId = eq._id;
+        esEquipoCliente = true;
+        sinEquipo = false;
+      }
+    }
 
     // Equipo Pipsa: determinar el estatus al que debe regresar.
     // Con cliente asignado → "rentado". Sin cliente → "disponible".
     let estatusRegreso = null;
-    if (!esEquipoCliente) {
+    if (!esEquipoCliente && !sinEquipo) {
       const montaActual = await Montacargas.findById(servicioActual.montacargas).select("clienteActual");
       estatusRegreso = montaActual?.clienteActual ? "rentado" : "disponible";
     }
@@ -289,6 +337,7 @@ export async function cerrarServicio(req, res) {
       firmaCliente:     firmaCliente     ?? null,
       horaFin:          new Date(),
     };
+    if (equipoNuevoId) { updateData.equipoCliente = equipoNuevoId; updateData.equipoPorAsignar = false; }
 
     if (ubicacion?.lat && ubicacion?.lng) {
       updateData.ubicacionCierre = { lat: ubicacion.lat, lng: ubicacion.lng };
@@ -309,7 +358,7 @@ export async function cerrarServicio(req, res) {
         horometroActual:     horometro,
         fechaUltimoServicio: new Date(),
       });
-    } else {
+    } else if (!sinEquipo) {
       await Montacargas.findByIdAndUpdate(servicio.montacargas, {
         horometroActual:      horometro,
         fechaUltimoServicio:  new Date(),
