@@ -3,6 +3,17 @@
 // ─────────────────────────────────────────────────────────────
 const TZ = "America/Mexico_City";
 
+/** Plazo de crédito (días) cuando ni la factura ni el cliente lo traen: se cuenta desde la fecha de emisión.
+ *  Configurable con la variable de entorno CARTERA_DIAS_CREDITO_DEFAULT. */
+export const DIAS_CREDITO_DEFAULT = Number.isFinite(Number(process.env.CARTERA_DIAS_CREDITO_DEFAULT))
+  && process.env.CARTERA_DIAS_CREDITO_DEFAULT !== undefined && process.env.CARTERA_DIAS_CREDITO_DEFAULT !== ""
+  ? Number(process.env.CARTERA_DIAS_CREDITO_DEFAULT) : 30;
+
+/** Plazo efectivo: factura → cliente → default. */
+export function plazoEfectivo(factura, diasCreditoCliente) {
+  return factura.diasCredito ?? diasCreditoCliente ?? DIAS_CREDITO_DEFAULT;
+}
+
 /** Convierte una fecha (Date|string) al inicio del día en México */
 export function toMexDay(fecha) {
   if (!fecha) return null;
@@ -24,12 +35,13 @@ export function diffDays(fechaA, fechaB) {
 
 /**
  * Calcula la fecha de vencimiento de una factura.
- * Prioridad: fechaVencimiento explícita → diasCredito de factura → diasCredito de cliente.
- * Si no hay ninguno, devuelve null ("Vencimiento por definir").
+ * Prioridad: fechaVencimiento explícita → diasCredito de factura → diasCredito de cliente
+ * → plazo por defecto (DIAS_CREDITO_DEFAULT), siempre contado desde la fecha de emisión.
+ * Solo devuelve null ("Vencimiento por definir") si la factura no tiene fecha de emisión.
  */
 export function calcFechaVencimiento(factura, diasCreditoCliente) {
   if (factura.fechaVencimiento) return toMexDay(factura.fechaVencimiento);
-  const plazo = factura.diasCredito ?? diasCreditoCliente ?? null;
+  const plazo = plazoEfectivo(factura, diasCreditoCliente);
   if (plazo !== null && factura.fechaEmision) {
     const base = toMexDay(factura.fechaEmision);
     if (base) {
@@ -110,7 +122,8 @@ export function enriquecerFacturas(docs, fechaCorte, diasCreditoCliente) {
       folioFactura:     doc.folioFactura ?? null,
       fechaEmision:     doc.fechaEmision ?? null,
       fechaVencimiento: fv,
-      diasCredito:      doc.diasCredito ?? diasCreditoCliente ?? null,
+      diasCredito:      plazoEfectivo(doc, diasCreditoCliente),
+      plazoPorDefecto:  !doc.fechaVencimiento && doc.diasCredito == null && diasCreditoCliente == null,
       total:            doc.total ?? 0,
       montoPagado:      doc.montoPagado ?? 0,
       saldo,
