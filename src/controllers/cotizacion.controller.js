@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Cotizacion from "../models/Cotizacion.js";
 import { obtenerReportePorAsesor, validarFiltrosReporte } from "../services/reporteCotizaciones.service.js";
 
@@ -8,9 +9,54 @@ const PREFIJO_POR_TIPO = {
   refacciones: "REF",
 };
 
+// ── Visibilidad: developer/gerencia ven todas; los demás (oficina/vendedores) solo las suyas ──
+const esAdmin = (req) => ["developer", "gerencia"].includes(req.userRol);
+const norm = (s) => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase().replace(/\s+/g, " ").trim();
+
+/** Asesor ligado al usuario en sesión: campo asesor/asesorId del usuario o, si no, mismo nombre. */
+async function miAsesor(req) {
+  try {
+    const User = mongoose.models.User ?? mongoose.models.Usuario;
+    const Asesor = mongoose.models.Asesor;
+    if (!User || !Asesor) return null;
+    const u = await User.findById(req.userId).lean();
+    if (!u) return null;
+    const directo = u.asesor ?? u.asesorId;
+    if (directo && mongoose.isValidObjectId(directo)) {
+      const a = await Asesor.findById(directo).select("nombre").lean();
+      if (a) return a;
+    }
+    const nombre = norm(u.nombre ?? u.name);
+    if (!nombre) return null;
+    const todos = await Asesor.find().select("nombre").lean();
+    return todos.find((a) => norm(a.nombre) === nombre) ?? null;
+  } catch (e) {
+    console.error("[cotizaciones/miAsesor]", e);
+    return null;
+  }
+}
+
+/** ¿Puede este usuario ver/modificar esta cotización? (admin siempre; los demás solo si es suya) */
+async function puedeAccederCotizacion(req, cotizacionId) {
+  if (esAdmin(req)) return true;
+  const mia = await miAsesor(req);
+  if (!mia) return false;
+  const c = await Cotizacion.findById(cotizacionId).select("asesor").lean();
+  return !!c?.asesor && String(c.asesor._id ?? c.asesor) === String(mia._id);
+}
+
+const SIN_PERMISO = { message: "No tienes permiso para ver esta cotización" };
+
 export async function getCotizaciones(req, res) {
   try {
-    const cotizaciones = await Cotizacion.find()
+    const filtro = {};
+    if (!esAdmin(req)) {
+      const mia = await miAsesor(req);
+      if (!mia) return res.json([]); // sin asesor ligado al usuario: no ve ninguna
+      filtro.asesor = mia._id;
+    }
+    const cotizaciones = await Cotizacion.find(filtro)
       .populate("cliente", "nombre direccion telefono contacto")
       .populate("montacargas", "numeroEconomico marca modelo capacidad tipo serie alturaColapsada alturaLevante horquillas desplazadorLateral tipoLlantas voltaje tipoBateria incluyeCargador equipoSeguridad")
       .populate("asesor", "nombre puesto telefono email")
@@ -30,6 +76,11 @@ export async function getCotizacion(req, res) {
       .populate("asesor", "nombre puesto telefono email")
       .populate("comentarios.autor", "nombre rol");
     if (!cotizacion) return res.status(404).json({ message: "Cotización no encontrada" });
+    if (!esAdmin(req)) {
+      const mia = await miAsesor(req);
+      if (!mia || String(cotizacion.asesor?._id ?? "") !== String(mia._id))
+        return res.status(403).json(SIN_PERMISO);
+    }
     res.json(cotizacion);
   } catch (e) {
     res.status(500).json({ message: "Error en el servidor" });
@@ -41,6 +92,13 @@ export async function createCotizacion(req, res) {
     const body = { ...req.body };
     if (!body.montacargas) delete body.montacargas;
     if (!body.asesor)      delete body.asesor;
+
+    // Un vendedor solo crea cotizaciones a su nombre
+    if (!esAdmin(req)) {
+      const mia = await miAsesor(req);
+      if (!mia) return res.status(403).json({ message: "Tu usuario no está ligado a un asesor; pide a gerencia que lo vincule" });
+      body.asesor = mia._id;
+    }
 
     if (body.clienteOcasional?.nombre) {
       body.cliente = null;
@@ -81,6 +139,14 @@ export async function updateCotizacion(req, res) {
     if (!body.montacargas) delete body.montacargas;
     if (!body.asesor)      delete body.asesor;
 
+    // Un vendedor solo edita las suyas y no puede reasignarlas a otro asesor
+    if (!esAdmin(req)) {
+      const mia = await miAsesor(req);
+      if (!mia || !(await puedeAccederCotizacion(req, req.params.id)))
+        return res.status(403).json({ message: "No tienes permiso para modificar esta cotización" });
+      body.asesor = mia._id;
+    }
+
     if (body.clienteOcasional?.nombre) {
       body.cliente = null;
     } else if (body.clienteOcasional !== undefined) {
@@ -116,6 +182,7 @@ export async function agregarComentario(req, res) {
   try {
     const { texto } = req.body;
     if (!texto?.trim()) return res.status(400).json({ message: "El comentario no puede estar vacío" });
+    if (!(await puedeAccederCotizacion(req, req.params.id))) return res.status(403).json(SIN_PERMISO);
     const cotizacion = await Cotizacion.findByIdAndUpdate(
       req.params.id,
       { $push: { comentarios: { texto: texto.trim(), autor: req.userId, fecha: new Date() } } },
@@ -130,6 +197,7 @@ export async function agregarComentario(req, res) {
 
 export async function eliminarComentario(req, res) {
   try {
+    if (!(await puedeAccederCotizacion(req, req.params.id))) return res.status(403).json(SIN_PERMISO);
     const cotizacion = await Cotizacion.findByIdAndUpdate(
       req.params.id,
       { $pull: { comentarios: { _id: req.params.comentarioId } } },
