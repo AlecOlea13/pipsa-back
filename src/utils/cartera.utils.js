@@ -74,18 +74,17 @@ export function calcRango(diasVencidos, sinFechaVencimiento) {
   return "mas_60";                                  // vencida +60 días
 }
 
-/** Antigüedad en columnas (días contados desde el VENCIMIENTO):
- *  vigente (aún no vence) · 1–30 · 31–60 · 61–90 · 91+ · sinDef (sin fecha). */
+/** Antigüedad en columnas (días contados desde la EMISIÓN de la factura, sobre todo el saldo):
+ *  1–30 · 31–60 · 61–90 · 91+. (vigente/sinDef se conservan en 0 por compatibilidad.) */
 export const AGING_KEYS = ["vigente", "d1_30", "d31_60", "d61_90", "d91", "sinDef"];
 export function emptyAging() {
   return { vigente: 0, d1_30: 0, d31_60: 0, d61_90: 0, d91: 0, sinDef: 0, total: 0 };
 }
 export function bucketAging(f) {
-  if (f.sinFechaVencimiento) return "sinDef";
-  if (f.diasVencidos <= 0)   return "vigente";
-  if (f.diasVencidos <= 30)  return "d1_30";
-  if (f.diasVencidos <= 60)  return "d31_60";
-  if (f.diasVencidos <= 90)  return "d61_90";
+  const d = f.diasTranscurridos ?? 0;
+  if (d <= 30)  return "d1_30";
+  if (d <= 60)  return "d31_60";
+  if (d <= 90)  return "d61_90";
   return "d91";
 }
 export function sumAging(facturas) {
