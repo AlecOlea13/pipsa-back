@@ -2,7 +2,7 @@ import { Router } from "express";
 import { auth, requireRol } from "../middleware/auth.js";
 import {
   toMexDay, diffDays, calcFechaVencimiento,
-  calcSaldo, calcRango, calcEstado, calcRiesgo, enriquecerFacturas,
+  calcSaldo, calcRango, calcEstado, calcRiesgo, enriquecerFacturas, sumAging,
 } from "../utils/cartera.utils.js";
 
 const router = Router();
@@ -188,6 +188,7 @@ router.get("/", auth, soloGerencia, async (req, res) => {
         nombre:          c.nombre,
         rfc:             c.rfc,
         diasCreditoCli:  c.diasCreditoCli,
+        aging:           sumAging(fPend),
         facturasPend:    fPend.length,
         saldoVigente,
         saldoVencido,
@@ -249,6 +250,7 @@ router.get("/", auth, soloGerencia, async (req, res) => {
         saldoMas90:       rangos["mas_60"],
       },
       rangos,
+      aging: sumAging(filtradas),
       clientes: paginated,
       paginacion: { page, limit, total, pages: Math.ceil(total / limit) },
     });
@@ -309,6 +311,7 @@ router.get("/cliente/:nombre", auth, soloGerencia, async (req, res) => {
         contacto:        clienteDoc?.contacto ?? null,
         email:           clienteDoc?.email ?? null,
       },
+      aging: sumAging(facturas),
       resumen: {
         saldoTotal, saldoVencido, saldoVigente,
         facturasPend: facturas.length,
