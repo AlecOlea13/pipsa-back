@@ -6,7 +6,7 @@ import {
 } from "../utils/cartera.utils.js";
 
 const router = Router();
-const soloGerencia = requireRol("developer", "gerencia");
+const soloGerencia = requireRol("developer", "gerencia", "oficina");
 
 // ─────────────────────────────────────────────────────────────
 // CORS explícito para este router (Vercel serverless)
